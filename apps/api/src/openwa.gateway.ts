@@ -15,7 +15,7 @@ export class OpenWaGateway {
   createSession(name: string) { return this.request('/sessions', { method: 'POST', body: JSON.stringify({ name }) }); }
   startSession(id: string) { return this.request(`/sessions/${encodeURIComponent(id)}/start`, { method: 'POST' }); }
   getQr(id: string) { return this.request(`/sessions/${encodeURIComponent(id)}/qr`); }
-  getStatus(id: string) { return this.request(`/sessions/${encodeURIComponent(id)}/status`); }
+  getStatus(id: string) { return this.request(`/sessions/${encodeURIComponent(id)}`); }
   createWebhook(id:string,url:string,secret?:string){return this.request(`/sessions/${encodeURIComponent(id)}/webhooks`,{method:'POST',body:JSON.stringify({url,events:['message.received','session.status'],secret})});}
   sendText(input: SendTextInput) { return this.request(`/sessions/${encodeURIComponent(input.providerSessionId)}/messages/send-text`, { method: 'POST', body: JSON.stringify({ chatId: input.chatId, text: input.text }) }); }
 }
