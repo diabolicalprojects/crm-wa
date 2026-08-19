@@ -1,0 +1,1 @@
+{"extends":"../../tsconfig.json","compilerOptions":{"outDir":"dist","rootDir":"src","module":"commonjs","moduleResolution":"node","emitDecoratorMetadata":true,"experimentalDecorators":true,"sourceMap":true},"include":["src/**/*.ts"]}

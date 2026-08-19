@@ -1,0 +1,4 @@
+externalId,title,operationType,propertyType,location,price,currency,bedrooms,bathrooms,areaM2,amenities,status,url
+HZ-001,Departamento Vista Norte,SALE,APARTMENT,Zona Norte,2850000,MXN,2,2,96,"elevador,seguridad,estacionamiento",AVAILABLE,https://agentesia.diabolicalservices.tech/propiedades/HZ-001
+HZ-002,Casa Bosques,Rent,HOUSE,Los Bosques,18500,MXN,3,2,180,"jardín,terraza,mascotas",AVAILABLE,https://agentesia.diabolicalservices.tech/propiedades/HZ-002
+HZ-003,Terreno Encino,SALE,LAND,Valle del Encino,1250000,MXN,,,500,"acceso pavimentado,servicios",AVAILABLE,https://agentesia.diabolicalservices.tech/propiedades/HZ-003
