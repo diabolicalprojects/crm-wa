@@ -1,8 +1,26 @@
 {
   "name": "horizonte-crm",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
-  "scripts": {"dev": "turbo dev", "build": "turbo build", "lint": "turbo lint", "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma", "db:push": "prisma db push --schema packages/db/prisma/schema.prisma"},
-  "devDependencies": {"turbo": "^2.5.0", "typescript": "^5.8.3", "prisma": "^6.7.0"},
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
+    "db:push": "prisma db push --schema packages/db/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.11",
+    "prisma": "^6.7.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.11"
+  },
   "packageManager": "npm@10.9.3"
 }
