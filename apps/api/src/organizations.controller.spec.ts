@@ -10,10 +10,10 @@ describe('OrganizationsController',()=>{
 
   beforeEach(()=>{
     db={
-      user:{upsert:vi.fn().mockResolvedValue({id:'owner-1',email:'owner@test.com'})},
+      user:{upsert:vi.fn().mockResolvedValue({id:'owner-1',email:'owner@test.com',name:'Owner'}),update:vi.fn().mockResolvedValue({id:'owner-1',email:'owner@test.com',name:'Owner'})},
       organization:{create:vi.fn().mockResolvedValue({id:'org-1',name:'Agencia Test',slug:'agencia-test'}),findMany:vi.fn()},
       invitation:{create:vi.fn(),findUnique:vi.fn(),update:vi.fn()},
-      organizationMember:{upsert:vi.fn(),findMany:vi.fn()},
+      organizationMember:{upsert:vi.fn().mockResolvedValue({id:'member-1'}),update:vi.fn().mockResolvedValue({id:'member-1'}),findMany:vi.fn()},
       auditLog:{create:vi.fn()},
     };
     db.$transaction=vi.fn((callback:any)=>callback(db));
@@ -67,5 +67,23 @@ describe('OrganizationsController',()=>{
     expect(result).toEqual({accepted:true});
     expect(db.organizationMember.upsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({status:'ACTIVE',role:'ADVISOR'})}));
     expect(db.invitation.update).toHaveBeenCalledWith({where:{id:'inv-1'},data:{acceptedAt:expect.any(Date)}});
+  });
+
+  it('crea una agencia con propietario activo cuando recibe contraseña temporal',async()=>{
+    await controller.create(superuser,{name:'Activa',slug:'activa',ownerEmail:'active@test.com',ownerPassword:'temporal-123'});
+    expect(db.user.upsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({status:'ACTIVE',passwordHash:expect.any(String)}),update:expect.objectContaining({status:'ACTIVE',passwordHash:expect.any(String)})}));
+    expect(db.organization.create).toHaveBeenCalledWith({
+      data:expect.objectContaining({members:{create:expect.objectContaining({status:'ACTIVE'})}}),
+    });
+    expect(db.invitation.create).not.toHaveBeenCalled();
+  });
+
+  it('crea usuarios activos y permite restablecer su contraseña',async()=>{
+    await controller.addMember(superuser,'org-1',{email:' USER@Test.com ',name:'Usuario',password:'temporal-123',role:'ADVISOR'});
+    expect(db.user.upsert).toHaveBeenCalledWith(expect.objectContaining({where:{email:'user@test.com'},create:expect.objectContaining({status:'ACTIVE',passwordHash:expect.any(String)})}));
+    expect(db.organizationMember.upsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({organizationId:'org-1',role:'ADVISOR',status:'ACTIVE'})}));
+    await controller.updateMember(superuser,'org-1','owner-1',{password:'nueva-clave-123'});
+    expect(db.user.update).toHaveBeenCalledWith({where:{id:'owner-1'},data:expect.objectContaining({passwordHash:expect.any(String),status:'ACTIVE'})});
+    expect(db.organizationMember.update).toHaveBeenCalledWith({where:{organizationId_userId:{organizationId:'org-1',userId:'owner-1'}},data:expect.objectContaining({status:'ACTIVE'})});
   });
 });
