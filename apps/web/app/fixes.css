@@ -1,0 +1,5 @@
+/* Prevent chart SVGs and dense CRM panels from escaping their cards. */
+.chart-body{min-width:0;overflow:hidden}
+.chart-body svg{width:100%;max-width:100%;display:block}
+.chart-card{min-width:0;overflow:hidden}
+.dashboard-grid>*{min-width:0}

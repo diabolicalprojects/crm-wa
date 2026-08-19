@@ -1,6 +1,8 @@
 'use client';
 import { useMemo, useState } from 'react';
 import './globals.css';
+import './fixes.css';
+import './monochrome.css';
 
 type Page = 'Resumen'|'Conversaciones'|'Leads'|'Propiedades'|'Agentes IA'|'WhatsApp'|'Equipo'|'Auditoría'|'Configuración';
 const nav: {label:Page; icon:string; section:string}[]=[

@@ -1,0 +1,16 @@
+/* Visual direction: white-first, black typography, restrained grayscale actions. */
+:root{--ink:#111;--muted:#707070;--line:#e5e5e5;--bg:#fafafa;--purple:#111;--purple-soft:#f1f1f1;--green:#111;--green-soft:#f0f0f0;--orange:#111;--orange-soft:#f0f0f0;--blue:#111;--blue-soft:#f0f0f0}
+body{background:#fafafa;color:#111}
+.sidebar,.topbar,.card,.metric,.lead-metrics>div,.whatsapp-alert,.property-card,.table-card,.workspace{background:#fff;border-color:#e5e5e5}
+.brand-mark,.primary{background:#111;color:#fff;box-shadow:none}
+.nav-link.selected{background:#111;color:#fff}
+.nav-link em{background:#eee;color:#111}
+.text-button,.breadcrumb b,.property-tabs b,.property-price,.property-suggestion strong,.composer-tools b{color:#111}
+.chart-area{fill:#ededed}.chart-line{stroke:#111}.progress i,.score i,.funnel i,.table-score i{background:#111}
+.badge-purple,.badge-green,.badge-orange,.badge-blue{background:#f0f0f0;color:#111}
+.metric-icon{background:#f0f0f0!important;color:#111!important}
+.online-dot,.status-dot{background:#111}
+.chat-header,.chat-composer,.lead-panel,.inbox-list{border-color:#e5e5e5}
+.outbound{background:#111;color:#fff}.property-suggestion{border-color:#ddd}.composer-input button{background:#111}
+.secondary,.filter,.outline-button{color:#111;border-color:#cfcfcf}.coming>span{background:#eee;color:#111}
+.property-image>span{color:#111}.property-image button{color:#111}
