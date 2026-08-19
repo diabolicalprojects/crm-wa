@@ -1,24 +1,222 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") }
-
-enum IndustryType { REAL_ESTATE TRAVEL }
-enum OrganizationStatus { ACTIVE SUSPENDED ARCHIVED }
-enum UserStatus { INVITED ACTIVE DISABLED }
-enum Role { OWNER ADMIN SUPERVISOR ADVISOR }
-enum AgentStatus { DRAFT ACTIVE PAUSED ARCHIVED }
-enum OperationMode { AI HUMAN HYBRID }
-enum SessionStatus { CREATING QR_REQUIRED STARTING CONNECTED DISCONNECTED FAILED STOPPED DELETING DELETED }
-enum ConversationMode { AI_ACTIVE AI_PAUSED HUMAN_ACTIVE DISABLED }
-enum LeadStage { NEW CONTACTED QUALIFIED VISIT_SCHEDULED WON LOST }
-enum PropertyStatus { AVAILABLE RESERVED SOLD RENTED INACTIVE }
-
-model Organization { id String @id @default(uuid()) name String slug String @unique industryType IndustryType @default(REAL_ESTATE) timezone String @default("America/Mexico_City") defaultLanguage String @default("es-MX") status OrganizationStatus @default(ACTIVE) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt members OrganizationMember[] agents Agent[] sessions WhatsappSession[] leads Lead[] properties Property[] conversations Conversation[] auditLogs AuditLog[] }
-model User { id String @id @default(uuid()) email String @unique name String passwordHash String? status UserStatus @default(INVITED) memberships OrganizationMember[] responsibleAgents Agent[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt }
-model OrganizationMember { id String @id @default(uuid()) organizationId String userId String role Role status UserStatus @default(ACTIVE) organization Organization @relation(fields:[organizationId], references:[id], onDelete: Cascade) user User @relation(fields:[userId], references:[id], onDelete: Cascade) @@unique([organizationId,userId]) }
-model Agent { id String @id @default(uuid()) organizationId String responsibleUserId String name String description String? status AgentStatus @default(DRAFT) operationMode OperationMode @default(HYBRID) language String @default("es-MX") tone String? greetingMessage String? systemInstructions String? aiEnabled Boolean @default(true) organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade) responsibleUser User @relation(fields:[responsibleUserId],references:[id]) session WhatsappSession? conversations Conversation[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt }
-model WhatsappSession { id String @id @default(uuid()) organizationId String providerSessionId String? name String phoneNumber String? status SessionStatus @default(CREATING) agent Agent? organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade) conversations Conversation[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@unique([organizationId,providerSessionId]) }
-model Lead { id String @id @default(uuid()) organizationId String phone String name String? email String? stage LeadStage @default(NEW) score Int @default(0) preferences Json? organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade) conversations Conversation[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@unique([organizationId,phone]) }
-model Conversation { id String @id @default(uuid()) organizationId String leadId String sessionId String agentId String? mode ConversationMode @default(AI_ACTIVE) subject String? organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade) lead Lead @relation(fields:[leadId],references:[id],onDelete:Cascade) session WhatsappSession @relation(fields:[sessionId],references:[id]) agent Agent? messages Message[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([organizationId,mode]) }
-model Message { id String @id @default(uuid()) conversationId String providerMessageId String? direction String type String @default("text") text String? status String @default("QUEUED") metadata Json? createdAt DateTime @default(now()) conversation Conversation @relation(fields:[conversationId],references:[id],onDelete:Cascade) @@unique([conversationId,providerMessageId]) }
-model Property { id String @id @default(uuid()) organizationId String externalId String? title String operationType String propertyType String location String price Decimal @db.Decimal(14,2) currency String @default("MXN") bedrooms Int? bathrooms Int? areaM2 Int? amenities String[] status PropertyStatus @default(AVAILABLE) description String? url String? organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([organizationId,status,operationType]) }
-model AuditLog { id String @id @default(uuid()) organizationId String? userId String? action String entityType String entityId String? metadata Json? createdAt DateTime @default(now()) organization Organization? @relation(fields:[organizationId],references:[id]) }
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum IndustryType {
+  REAL_ESTATE
+  TRAVEL
+}
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+enum Role {
+  OWNER
+  ADMIN
+  SUPERVISOR
+  ADVISOR
+}
+enum AgentStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+enum OperationMode {
+  AI
+  HUMAN
+  HYBRID
+}
+enum SessionStatus {
+  CREATING
+  QR_REQUIRED
+  STARTING
+  CONNECTED
+  DISCONNECTED
+  FAILED
+  STOPPED
+  DELETING
+  DELETED
+}
+enum ConversationMode {
+  AI_ACTIVE
+  AI_PAUSED
+  HUMAN_ACTIVE
+  DISABLED
+}
+enum LeadStage {
+  NEW
+  CONTACTED
+  QUALIFIED
+  VISIT_SCHEDULED
+  WON
+  LOST
+}
+enum PropertyStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  RENTED
+  INACTIVE
+}
+model Organization {
+  id String @id @default(uuid())
+  name String
+  slug String @unique
+  industryType IndustryType @default(REAL_ESTATE)
+  timezone String @default("America/Mexico_City")
+  defaultLanguage String @default("es-MX")
+  status OrganizationStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members OrganizationMember[]
+  agents Agent[]
+  sessions WhatsappSession[]
+  leads Lead[]
+  properties Property[]
+  conversations Conversation[]
+  auditLogs AuditLog[]
+}
+model User {
+  id String @id @default(uuid())
+  email String @unique
+  name String
+  passwordHash String?
+  status UserStatus @default(INVITED)
+  memberships OrganizationMember[]
+  responsibleAgents Agent[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model OrganizationMember {
+  id String @id @default(uuid())
+  organizationId String
+  userId String
+  role Role
+  status UserStatus @default(ACTIVE)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([organizationId, userId])
+}
+model Agent {
+  id String @id @default(uuid())
+  organizationId String
+  responsibleUserId String
+  name String
+  description String?
+  status AgentStatus @default(DRAFT)
+  operationMode OperationMode @default(HYBRID)
+  language String @default("es-MX")
+  tone String?
+  greetingMessage String?
+  systemInstructions String?
+  aiEnabled Boolean @default(true)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  responsibleUser User @relation(fields: [responsibleUserId], references: [id])
+  session WhatsappSession? @relation("AgentSession")
+  conversations Conversation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model WhatsappSession {
+  id String @id @default(uuid())
+  organizationId String
+  providerSessionId String?
+  name String
+  phoneNumber String?
+  status SessionStatus @default(CREATING)
+  agentId String? @unique
+  agent Agent? @relation("AgentSession", fields: [agentId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([organizationId, providerSessionId])
+}
+model Lead {
+  id String @id @default(uuid())
+  organizationId String
+  phone String
+  name String?
+  email String?
+  stage LeadStage @default(NEW)
+  score Int @default(0)
+  preferences Json?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([organizationId, phone])
+}
+model Conversation {
+  id String @id @default(uuid())
+  organizationId String
+  leadId String
+  sessionId String
+  agentId String?
+  mode ConversationMode @default(AI_ACTIVE)
+  subject String?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  session WhatsappSession @relation(fields: [sessionId], references: [id])
+  agent Agent? @relation(fields: [agentId], references: [id])
+  messages Message[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId, mode])
+}
+model Message {
+  id String @id @default(uuid())
+  conversationId String
+  providerMessageId String?
+  direction String
+  type String @default("text")
+  text String?
+  status String @default("QUEUED")
+  metadata Json?
+  createdAt DateTime @default(now())
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  @@unique([conversationId, providerMessageId])
+}
+model Property {
+  id String @id @default(uuid())
+  organizationId String
+  externalId String?
+  title String
+  operationType String
+  propertyType String
+  location String
+  price Decimal @db.Decimal(14, 2)
+  currency String @default("MXN")
+  bedrooms Int?
+  bathrooms Int?
+  areaM2 Int?
+  amenities String[]
+  status PropertyStatus @default(AVAILABLE)
+  description String?
+  url String?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId, status, operationType])
+}
+model AuditLog {
+  id String @id @default(uuid())
+  organizationId String?
+  userId String?
+  action String
+  entityType String
+  entityId String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  organization Organization? @relation(fields: [organizationId], references: [id])
+}
