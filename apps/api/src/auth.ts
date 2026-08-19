@@ -33,7 +33,17 @@ export class AuthService {
 @Injectable()
 export class JwtGuard implements CanActivate {
   constructor(private reflector:Reflector,private auth:AuthService){}
-  canActivate(ctx:ExecutionContext){if(this.reflector.getAllAndOverride<boolean>('public',[ctx.getHandler(),ctx.getClass()]))return true;const req=ctx.switchToHttp().getRequest();const value=String(req.headers.authorization||'');if(!value.startsWith('Bearer '))throw new UnauthorizedException('Falta token');req.user=this.auth.parse(value.slice(7));return true}
+  canActivate(ctx:ExecutionContext){
+    if(this.reflector.getAllAndOverride<boolean>('public',[ctx.getHandler(),ctx.getClass()]))return true;
+    const req=ctx.switchToHttp().getRequest();
+    const value=String(req.headers.authorization||'');
+    if(!value.startsWith('Bearer '))throw new UnauthorizedException('Falta token');
+    const user=this.auth.parse(value.slice(7));
+    const selectedOrganization=String(req.headers['x-organization-id']||'').trim();
+    if(user.isSuperAdmin&&selectedOrganization)user.organizationId=selectedOrganization;
+    req.user=user;
+    return true;
+  }
 }
 @Injectable()
 export class RolesGuard implements CanActivate {
