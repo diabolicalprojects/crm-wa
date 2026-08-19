@@ -1,2 +1,2 @@
 import { BadRequestException, createParamDecorator, ExecutionContext } from '@nestjs/common';
-export const TenantId=createParamDecorator((_d:unknown,ctx:ExecutionContext)=>{const id=ctx.switchToHttp().getRequest().headers['x-organization-id'];if(!id)throw new BadRequestException('Falta x-organization-id');return String(id)});
+export const TenantId=createParamDecorator((_d:unknown,ctx:ExecutionContext)=>{const req=ctx.switchToHttp().getRequest();const id=req.user?.organizationId||(req.user?.isSuperAdmin?req.headers['x-organization-id']:undefined);if(!id)throw new BadRequestException('No se seleccionó una agencia');return String(id)});

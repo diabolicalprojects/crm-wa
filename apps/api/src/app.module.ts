@@ -8,4 +8,13 @@ import { PropertiesController } from './properties.controller';
 import { LeadsController } from './leads.controller';
 import { ConversationsController } from './conversations.controller';
 import { OpenWaWebhookController } from './openwa-webhook.controller';
-@Module({controllers:[HealthController,AgentsController,WhatsappController,PropertiesController,LeadsController,ConversationsController,OpenWaWebhookController],providers:[OpenWaGateway,PrismaService]}) export class AppModule {}
+import { APP_GUARD } from '@nestjs/core';
+import { AuthController, AuthService, JwtGuard, RolesGuard } from './auth';
+import { OrganizationsController } from './organizations.controller';
+import { DashboardController } from './dashboard.controller';
+import { AuditController } from './audit.controller';
+import { ImportsController } from './imports.controller';
+import { AutomationService } from './automation.service';
+import { LlmController } from './llm.controller';
+import { SecretsService } from './secrets.service';
+@Module({controllers:[HealthController,AuthController,OrganizationsController,DashboardController,AuditController,ImportsController,LlmController,AgentsController,WhatsappController,PropertiesController,LeadsController,ConversationsController,OpenWaWebhookController],providers:[OpenWaGateway,PrismaService,AuthService,AutomationService,SecretsService,{provide:APP_GUARD,useClass:JwtGuard},{provide:APP_GUARD,useClass:RolesGuard}]}) export class AppModule {}

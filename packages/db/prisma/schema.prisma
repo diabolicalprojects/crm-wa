@@ -85,6 +85,8 @@ model Organization {
   properties Property[]
   conversations Conversation[]
   auditLogs AuditLog[]
+  invitations Invitation[]
+  visits Visit[]
 }
 model User {
   id String @id @default(uuid())
@@ -92,10 +94,13 @@ model User {
   name String
   passwordHash String?
   status UserStatus @default(INVITED)
+  isSuperAdmin Boolean @default(false)
   memberships OrganizationMember[]
   responsibleAgents Agent[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  invitationsSent Invitation[] @relation("InvitationSender")
+  assignedVisits Visit[]
 }
 model OrganizationMember {
   id String @id @default(uuid())
@@ -165,6 +170,8 @@ model Conversation {
   agentId String?
   mode ConversationMode @default(AI_ACTIVE)
   subject String?
+  assignedUserId String?
+  lastMessageAt DateTime?
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
   session WhatsappSession @relation(fields: [sessionId], references: [id])
@@ -182,6 +189,8 @@ model Message {
   type String @default("text")
   text String?
   status String @default("QUEUED")
+  authorType String @default("SYSTEM")
+  origin String @default("CRM")
   metadata Json?
   createdAt DateTime @default(now())
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -219,4 +228,50 @@ model AuditLog {
   metadata Json?
   createdAt DateTime @default(now())
   organization Organization? @relation(fields: [organizationId], references: [id])
+  @@index([organizationId, createdAt])
+}
+
+model Invitation {
+  id String @id @default(uuid())
+  organizationId String
+  email String
+  role Role
+  tokenHash String @unique
+  invitedById String
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("InvitationSender", fields: [invitedById], references: [id])
+  @@index([organizationId, email])
+}
+
+model Visit {
+  id String @id @default(uuid())
+  organizationId String
+  propertyId String
+  leadId String
+  assignedUserId String
+  startsAt DateTime
+  endsAt DateTime
+  status String @default("SCHEDULED")
+  notes String?
+  googleEventId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser User @relation(fields: [assignedUserId], references: [id])
+  @@index([organizationId, startsAt])
+}
+
+model LlmProvider {
+  id String @id @default(uuid())
+  name String
+  provider String
+  model String
+  encryptedApiKey String
+  baseUrl String?
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

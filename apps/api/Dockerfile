@@ -13,5 +13,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/packages/db ./packages/db
 EXPOSE 3001
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["sh", "-c", "npx prisma db push --schema packages/db/prisma/schema.prisma && node apps/api/dist/main.js"]

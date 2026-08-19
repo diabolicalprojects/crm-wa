@@ -1,2 +1,3 @@
 import { Controller, Get } from '@nestjs/common';
-@Controller('health') export class HealthController { @Get() check(){return {status:'ok',service:'crm-api',timestamp:new Date().toISOString()}} }
+import { Public } from './auth';
+@Public() @Controller('health') export class HealthController { @Get() check(){return {status:'ok',service:'crm-api',timestamp:new Date().toISOString()}} }
