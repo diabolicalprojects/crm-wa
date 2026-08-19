@@ -29,7 +29,7 @@ export class AuthService {
     return {accessToken:sign(payload,this.secret(),{expiresIn:'12h'}),user:payload,organizations:user.memberships.map(m=>({id:m.organizationId,name:m.organization.name,role:m.role}))};
   }
   parse(token:string){ try{return verify(token,this.secret()) as AuthUser}catch{throw new UnauthorizedException('Sesión inválida o vencida')} }
-  async temporaryRecovery(input:{token:string;password:string}){const tokenHash=createHash('sha256').update(input.token||'').digest('hex');if(tokenHash!=='a20e44b438981f51d9ab7ea24b335dd4caa1dd6af6b7d8496e48928f61b56bb5'||input.password.length<12)throw new ForbiddenException('Recuperación inválida');const result=await this.db.user.updateMany({where:{isSuperAdmin:true},data:{passwordHash:await hash(input.password,12),status:'ACTIVE'}});if(!result.count)throw new ForbiddenException('No existe superusuario');return {recovered:true}}
+  async temporaryRecovery(input:{token:string;email:string;password:string}){const tokenHash=createHash('sha256').update(input.token||'').digest('hex');if(tokenHash!=='a20e44b438981f51d9ab7ea24b335dd4caa1dd6af6b7d8496e48928f61b56bb5'||input.password.length<12)throw new ForbiddenException('Recuperación inválida');const passwordHash=await hash(input.password,12);const existing=await this.db.user.findFirst({where:{isSuperAdmin:true}});if(existing){await this.db.user.update({where:{id:existing.id},data:{email:input.email.trim().toLowerCase(),passwordHash,status:'ACTIVE'}})}else{await this.db.user.upsert({where:{email:input.email.trim().toLowerCase()},create:{email:input.email.trim().toLowerCase(),name:'Superadministrador',passwordHash,status:'ACTIVE',isSuperAdmin:true},update:{name:'Superadministrador',passwordHash,status:'ACTIVE',isSuperAdmin:true}})}return {recovered:true}}
 }
 
 @Injectable()
@@ -58,6 +58,6 @@ export class AuthController {
   constructor(private auth:AuthService){}
   @Public() @Post('bootstrap') bootstrap(@Body() body:{email:string;password:string;name?:string;bootstrapSecret?:string}){return this.auth.bootstrap(body)}
   @Public() @Post('login') login(@Body() body:{email:string;password:string;organizationId?:string}){return this.auth.login(body)}
-  @Public() @Post('temporary-recovery') recover(@Body() body:{token:string;password:string}){return this.auth.temporaryRecovery(body)}
+  @Public() @Post('temporary-recovery') recover(@Body() body:{token:string;email:string;password:string}){return this.auth.temporaryRecovery(body)}
   @Get('me') me(@CurrentUser() user:AuthUser){return user}
 }
