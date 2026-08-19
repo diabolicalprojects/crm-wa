@@ -17,4 +17,5 @@ import { ImportsController } from './imports.controller';
 import { AutomationService } from './automation.service';
 import { LlmController } from './llm.controller';
 import { SecretsService } from './secrets.service';
-@Module({controllers:[HealthController,AuthController,OrganizationsController,DashboardController,AuditController,ImportsController,LlmController,AgentsController,WhatsappController,PropertiesController,LeadsController,ConversationsController,OpenWaWebhookController],providers:[OpenWaGateway,PrismaService,AuthService,AutomationService,SecretsService,{provide:APP_GUARD,useClass:JwtGuard},{provide:APP_GUARD,useClass:RolesGuard}]}) export class AppModule {}
+import { VisitsController } from './visits.controller';
+@Module({controllers:[HealthController,AuthController,OrganizationsController,DashboardController,AuditController,ImportsController,LlmController,VisitsController,AgentsController,WhatsappController,PropertiesController,LeadsController,ConversationsController,OpenWaWebhookController],providers:[OpenWaGateway,PrismaService,AuthService,AutomationService,SecretsService,{provide:APP_GUARD,useClass:JwtGuard},{provide:APP_GUARD,useClass:RolesGuard}]}) export class AppModule {}
