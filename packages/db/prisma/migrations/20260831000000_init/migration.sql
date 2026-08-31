@@ -1,5 +1,38 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
+-- CreateEnum
+CREATE TYPE "IndustryType" AS ENUM ('REAL_ESTATE', 'TRAVEL');
+
+-- CreateEnum
+CREATE TYPE "OrganizationStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'ARCHIVED');
+
+-- CreateEnum
+CREATE TYPE "UserStatus" AS ENUM ('INVITED', 'ACTIVE', 'DISABLED');
+
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('OWNER', 'ADMIN', 'SUPERVISOR', 'ADVISOR');
+
+-- CreateEnum
+CREATE TYPE "AgentStatus" AS ENUM ('DRAFT', 'ACTIVE', 'PAUSED', 'ARCHIVED');
+
+-- CreateEnum
+CREATE TYPE "OperationMode" AS ENUM ('AI', 'HUMAN', 'HYBRID');
+
+-- CreateEnum
+CREATE TYPE "SessionStatus" AS ENUM ('CREATING', 'QR_REQUIRED', 'STARTING', 'CONNECTED', 'DISCONNECTED', 'FAILED', 'STOPPED', 'DELETING', 'DELETED');
+
+-- CreateEnum
+CREATE TYPE "ConversationMode" AS ENUM ('AI_ACTIVE', 'AI_PAUSED', 'HUMAN_ACTIVE', 'DISABLED');
+
 -- CreateEnum
 CREATE TYPE "ConversationStatus" AS ENUM ('OPEN', 'PENDING', 'RESOLVED', 'ARCHIVED');
+
+-- CreateEnum
+CREATE TYPE "LeadStage" AS ENUM ('NEW', 'CONTACTED', 'QUALIFYING', 'QUALIFIED', 'VISIT_SCHEDULED', 'WON', 'LOST');
+
+-- CreateEnum
+CREATE TYPE "PropertyStatus" AS ENUM ('DRAFT', 'AVAILABLE', 'RESERVED', 'SOLD', 'RENTED', 'INACTIVE');
 
 -- CreateEnum
 CREATE TYPE "OperationType" AS ENUM ('SALE', 'RENT');
@@ -58,208 +91,110 @@ CREATE TYPE "CalendarScope" AS ENUM ('PERSONAL', 'SHARED');
 -- CreateEnum
 CREATE TYPE "CalendarConnectionStatus" AS ENUM ('ACTIVE', 'EXPIRED', 'REVOKED', 'ERROR');
 
--- AlterEnum
-ALTER TYPE "LeadStage" ADD VALUE 'QUALIFYING';
+-- CreateTable
+CREATE TABLE "Organization" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "industryType" "IndustryType" NOT NULL DEFAULT 'REAL_ESTATE',
+    "timezone" TEXT NOT NULL DEFAULT 'America/Mexico_City',
+    "defaultLanguage" TEXT NOT NULL DEFAULT 'es-MX',
+    "status" "OrganizationStatus" NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- AlterEnum
-ALTER TYPE "PropertyStatus" ADD VALUE 'DRAFT';
+    CONSTRAINT "Organization_pkey" PRIMARY KEY ("id")
+);
 
--- DropForeignKey
-ALTER TABLE "Visit" DROP CONSTRAINT "Visit_organizationId_fkey";
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "passwordHash" TEXT,
+    "status" "UserStatus" NOT NULL DEFAULT 'INVITED',
+    "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- DropForeignKey
-ALTER TABLE "Visit" DROP CONSTRAINT "Visit_assignedUserId_fkey";
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
--- DropIndex
-DROP INDEX "Message_conversationId_providerMessageId_key";
+-- CreateTable
+CREATE TABLE "OrganizationMember" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "role" "Role" NOT NULL,
+    "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- AlterTable
-ALTER TABLE "OrganizationMember" ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL;
+    CONSTRAINT "OrganizationMember_pkey" PRIMARY KEY ("id")
+);
 
--- AlterTable
-ALTER TABLE "Agent" ADD COLUMN     "businessHours" JSONB,
-ADD COLUMN     "handoffRules" JSONB,
-ADD COLUMN     "modelConfigId" TEXT;
+-- CreateTable
+CREATE TABLE "Invitation" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "role" "Role" NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "invitedById" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "acceptedAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
--- AlterTable
-ALTER TABLE "WhatsappSession" ADD COLUMN     "connectedAt" TIMESTAMP(3),
-ADD COLUMN     "disconnectedAt" TIMESTAMP(3),
-ADD COLUMN     "engineType" TEXT,
-ADD COLUMN     "failureReason" TEXT,
-ADD COLUMN     "lastProviderStatus" TEXT,
-ADD COLUMN     "lastSeenAt" TIMESTAMP(3),
-ADD COLUMN     "provider" TEXT NOT NULL DEFAULT 'OPENWA',
-ADD COLUMN     "waAccountId" TEXT,
-ADD COLUMN     "webhookConfiguredAt" TIMESTAMP(3);
+    CONSTRAINT "Invitation_pkey" PRIMARY KEY ("id")
+);
 
--- AlterTable
-ALTER TABLE "Lead" ADD COLUMN     "aiSummary" TEXT,
-ADD COLUMN     "assignedUserId" TEXT,
-ADD COLUMN     "lastContactAt" TIMESTAMP(3),
-ADD COLUMN     "source" TEXT NOT NULL DEFAULT 'WHATSAPP',
-ADD COLUMN     "whatsappChatId" TEXT;
+-- CreateTable
+CREATE TABLE "Agent" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "responsibleUserId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "status" "AgentStatus" NOT NULL DEFAULT 'DRAFT',
+    "operationMode" "OperationMode" NOT NULL DEFAULT 'HYBRID',
+    "language" TEXT NOT NULL DEFAULT 'es-MX',
+    "tone" TEXT,
+    "greetingMessage" TEXT,
+    "systemInstructions" TEXT,
+    "aiEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "modelConfigId" TEXT,
+    "businessHours" JSONB,
+    "handoffRules" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- AlterTable
-ALTER TABLE "Conversation" ADD COLUMN     "handoffReason" TEXT,
-ADD COLUMN     "lastInboundAt" TIMESTAMP(3),
-ADD COLUMN     "lastOutboundAt" TIMESTAMP(3),
-ADD COLUMN     "status" "ConversationStatus" NOT NULL DEFAULT 'OPEN',
-ADD COLUMN     "summary" TEXT,
-ADD COLUMN     "summaryUpdatedAt" TIMESTAMP(3);
+    CONSTRAINT "Agent_pkey" PRIMARY KEY ("id")
+);
 
--- ---------------------------------------------------------------------------
--- Message: de texto libre a enums, conservando los mensajes existentes.
--- ---------------------------------------------------------------------------
+-- CreateTable
+CREATE TABLE "WhatsappSession" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "provider" TEXT NOT NULL DEFAULT 'OPENWA',
+    "providerSessionId" TEXT,
+    "name" TEXT NOT NULL,
+    "phoneNumber" TEXT,
+    "waAccountId" TEXT,
+    "engineType" TEXT,
+    "status" "SessionStatus" NOT NULL DEFAULT 'CREATING',
+    "lastProviderStatus" TEXT,
+    "lastSeenAt" TIMESTAMP(3),
+    "connectedAt" TIMESTAMP(3),
+    "disconnectedAt" TIMESTAMP(3),
+    "failureReason" TEXT,
+    "webhookConfiguredAt" TIMESTAMP(3),
+    "agentId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-ALTER TABLE "Message"
-  ADD COLUMN "errorCode" TEXT,
-  ADD COLUMN "errorMessage" TEXT,
-  ADD COLUMN "mediaId" TEXT,
-  ADD COLUMN "organizationId" TEXT,
-  ADD COLUMN "providerTimestamp" TIMESTAMP(3),
-  ADD COLUMN "replyToMessageId" TEXT,
-  ADD COLUMN "senderType" "MessageSenderType" NOT NULL DEFAULT 'SYSTEM',
-  ADD COLUMN "senderUserId" TEXT,
-  ADD COLUMN "sessionId" TEXT,
-  ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
-
--- El tenant y la sesión se derivan de la conversación a la que pertenece
--- el mensaje; son columnas nuevas obligatorias.
-UPDATE "Message" m
-SET "organizationId" = c."organizationId", "sessionId" = c."sessionId"
-FROM "Conversation" c
-WHERE c."id" = m."conversationId";
-
--- Un mensaje sin conversación no es recuperable ni referenciable.
-DELETE FROM "Message" WHERE "organizationId" IS NULL;
-ALTER TABLE "Message" ALTER COLUMN "organizationId" SET NOT NULL;
-
-UPDATE "Message"
-SET "senderType" = (CASE upper("authorType")
-  WHEN 'LEAD' THEN 'LEAD'
-  WHEN 'AI' THEN 'AI'
-  WHEN 'HUMAN' THEN 'HUMAN'
-  ELSE 'SYSTEM' END)::"MessageSenderType";
-ALTER TABLE "Message" DROP COLUMN "authorType";
-
-ALTER TABLE "Message" ALTER COLUMN "direction" DROP DEFAULT;
-ALTER TABLE "Message" ALTER COLUMN "direction" TYPE "MessageDirection"
-  USING (CASE upper("direction") WHEN 'INBOUND' THEN 'INBOUND' ELSE 'OUTBOUND' END)::"MessageDirection";
-
-ALTER TABLE "Message" ALTER COLUMN "type" DROP DEFAULT;
-ALTER TABLE "Message" ALTER COLUMN "type" TYPE "MessageType"
-  USING (CASE upper("type")
-    WHEN 'TEXT' THEN 'TEXT'
-    WHEN 'IMAGE' THEN 'IMAGE'
-    WHEN 'VIDEO' THEN 'VIDEO'
-    WHEN 'AUDIO' THEN 'AUDIO'
-    WHEN 'VOICE' THEN 'VOICE'
-    WHEN 'DOCUMENT' THEN 'DOCUMENT'
-    WHEN 'STICKER' THEN 'STICKER'
-    WHEN 'LOCATION' THEN 'LOCATION'
-    WHEN 'CONTACT' THEN 'CONTACT'
-    WHEN 'POLL' THEN 'POLL'
-    WHEN 'CALL' THEN 'CALL'
-    WHEN 'REVOKED' THEN 'REVOKED'
-    WHEN 'MASKED' THEN 'MASKED'
-    ELSE 'UNKNOWN' END)::"MessageType";
-ALTER TABLE "Message" ALTER COLUMN "type" SET DEFAULT 'TEXT';
-
-ALTER TABLE "Message" ALTER COLUMN "status" DROP DEFAULT;
-ALTER TABLE "Message" ALTER COLUMN "status" TYPE "MessageStatus"
-  USING (CASE upper("status")
-    WHEN 'RECEIVED' THEN 'RECEIVED'
-    WHEN 'QUEUED' THEN 'QUEUED'
-    WHEN 'GENERATING' THEN 'GENERATING'
-    WHEN 'SENT' THEN 'SENT'
-    WHEN 'DELIVERED' THEN 'DELIVERED'
-    WHEN 'READ' THEN 'READ'
-    WHEN 'FAILED' THEN 'FAILED'
-    WHEN 'CANCELLED' THEN 'CANCELLED'
-    ELSE 'QUEUED' END)::"MessageStatus";
-ALTER TABLE "Message" ALTER COLUMN "status" SET DEFAULT 'QUEUED';
-
-ALTER TABLE "Message" ALTER COLUMN "origin" DROP DEFAULT;
-ALTER TABLE "Message" ALTER COLUMN "origin" TYPE "MessageOrigin"
-  USING (CASE upper("origin")
-    WHEN 'CRM' THEN 'CRM'
-    WHEN 'WHATSAPP' THEN 'WHATSAPP'
-    WHEN 'WHATSAPP_PHONE' THEN 'WHATSAPP_PHONE'
-    ELSE 'SYSTEM' END)::"MessageOrigin";
-ALTER TABLE "Message" ALTER COLUMN "origin" SET DEFAULT 'CRM';
-
--- ---------------------------------------------------------------------------
--- Property: se separa la ubicación y se tipan operación y tipo. Los campos
--- antiguos se copian a su equivalente antes de eliminarse.
--- ---------------------------------------------------------------------------
-
-ALTER TABLE "Property"
-  ADD COLUMN "addressDisplay" TEXT,
-  ADD COLUMN "availableFrom" DATE,
-  ADD COLUMN "city" TEXT,
-  ADD COLUMN "constructionM2" DECIMAL(10,2),
-  ADD COLUMN "contentHash" TEXT,
-  ADD COLUMN "country" TEXT NOT NULL DEFAULT 'México',
-  ADD COLUMN "externalReference" TEXT,
-  ADD COLUMN "landM2" DECIMAL(10,2),
-  ADD COLUMN "lastSeenAt" TIMESTAMP(3),
-  ADD COLUMN "latitude" DECIMAL(10,7),
-  ADD COLUMN "longitude" DECIMAL(10,7),
-  ADD COLUMN "neighborhood" TEXT,
-  ADD COLUMN "parkingSpaces" INTEGER,
-  ADD COLUMN "propertySourceId" TEXT,
-  ADD COLUMN "publicUrl" TEXT,
-  ADD COLUMN "state" TEXT;
-
-UPDATE "Property" SET
-  "city" = NULLIF(btrim("location"), ''),
-  "publicUrl" = "url",
-  "constructionM2" = "areaM2",
-  "externalReference" = "externalId";
-
-ALTER TABLE "Property"
-  DROP COLUMN "areaM2",
-  DROP COLUMN "externalId",
-  DROP COLUMN "location",
-  DROP COLUMN "url";
-
-ALTER TABLE "Property" ALTER COLUMN "operationType" TYPE "OperationType"
-  USING (CASE upper("operationType")
-    WHEN 'VENTA' THEN 'SALE'
-    WHEN 'SALE' THEN 'SALE'
-    WHEN 'COMPRA' THEN 'SALE'
-    WHEN 'RENTA' THEN 'RENT'
-    WHEN 'RENT' THEN 'RENT'
-    WHEN 'ALQUILER' THEN 'RENT'
-    ELSE 'SALE' END)::"OperationType";
-
-ALTER TABLE "Property" ALTER COLUMN "propertyType" TYPE "PropertyType"
-  USING (CASE upper("propertyType")
-    WHEN 'CASA' THEN 'HOUSE'
-    WHEN 'HOUSE' THEN 'HOUSE'
-    WHEN 'DEPARTAMENTO' THEN 'APARTMENT'
-    WHEN 'DEPA' THEN 'APARTMENT'
-    WHEN 'DEPTO' THEN 'APARTMENT'
-    WHEN 'APARTMENT' THEN 'APARTMENT'
-    WHEN 'TERRENO' THEN 'LAND'
-    WHEN 'LOTE' THEN 'LAND'
-    WHEN 'LAND' THEN 'LAND'
-    WHEN 'COMERCIAL' THEN 'COMMERCIAL'
-    WHEN 'LOCAL' THEN 'COMMERCIAL'
-    WHEN 'COMMERCIAL' THEN 'COMMERCIAL'
-    WHEN 'OFICINA' THEN 'OFFICE'
-    WHEN 'OFFICE' THEN 'OFFICE'
-    ELSE 'OTHER' END)::"PropertyType";
-
-ALTER TABLE "Property" ALTER COLUMN "bathrooms" SET DATA TYPE DECIMAL(4,1);
--- AlterTable
-ALTER TABLE "AuditLog" ADD COLUMN     "ipAddress" TEXT,
-ADD COLUMN     "userAgent" TEXT;
-
--- AlterTable
-ALTER TABLE "Invitation" ADD COLUMN     "revokedAt" TIMESTAMP(3);
-
+    CONSTRAINT "WhatsappSession_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "AgentSessionAssignment" (
@@ -272,6 +207,112 @@ CREATE TABLE "AgentSessionAssignment" (
     "unassignedAt" TIMESTAMP(3),
 
     CONSTRAINT "AgentSessionAssignment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Lead" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "whatsappChatId" TEXT,
+    "name" TEXT,
+    "email" TEXT,
+    "source" TEXT NOT NULL DEFAULT 'WHATSAPP',
+    "stage" "LeadStage" NOT NULL DEFAULT 'NEW',
+    "score" INTEGER NOT NULL DEFAULT 0,
+    "aiSummary" TEXT,
+    "preferences" JSONB,
+    "lastContactAt" TIMESTAMP(3),
+    "assignedUserId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Lead_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Conversation" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "leadId" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "agentId" TEXT,
+    "mode" "ConversationMode" NOT NULL DEFAULT 'AI_ACTIVE',
+    "status" "ConversationStatus" NOT NULL DEFAULT 'OPEN',
+    "subject" TEXT,
+    "assignedUserId" TEXT,
+    "handoffReason" TEXT,
+    "summary" TEXT,
+    "summaryUpdatedAt" TIMESTAMP(3),
+    "lastMessageAt" TIMESTAMP(3),
+    "lastInboundAt" TIMESTAMP(3),
+    "lastOutboundAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Conversation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Message" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "conversationId" TEXT NOT NULL,
+    "sessionId" TEXT,
+    "providerMessageId" TEXT,
+    "direction" "MessageDirection" NOT NULL,
+    "senderType" "MessageSenderType" NOT NULL DEFAULT 'SYSTEM',
+    "senderUserId" TEXT,
+    "type" "MessageType" NOT NULL DEFAULT 'TEXT',
+    "text" TEXT,
+    "mediaId" TEXT,
+    "replyToMessageId" TEXT,
+    "status" "MessageStatus" NOT NULL DEFAULT 'QUEUED',
+    "origin" "MessageOrigin" NOT NULL DEFAULT 'CRM',
+    "errorCode" TEXT,
+    "errorMessage" TEXT,
+    "providerTimestamp" TIMESTAMP(3),
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Message_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Property" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "propertySourceId" TEXT,
+    "externalReference" TEXT,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "operationType" "OperationType" NOT NULL,
+    "propertyType" "PropertyType" NOT NULL,
+    "status" "PropertyStatus" NOT NULL DEFAULT 'AVAILABLE',
+    "price" DECIMAL(14,2) NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'MXN',
+    "country" TEXT NOT NULL DEFAULT 'México',
+    "state" TEXT,
+    "city" TEXT,
+    "neighborhood" TEXT,
+    "addressDisplay" TEXT,
+    "latitude" DECIMAL(10,7),
+    "longitude" DECIMAL(10,7),
+    "bedrooms" INTEGER,
+    "bathrooms" DECIMAL(4,1),
+    "parkingSpaces" INTEGER,
+    "constructionM2" DECIMAL(10,2),
+    "landM2" DECIMAL(10,2),
+    "amenities" TEXT[],
+    "publicUrl" TEXT,
+    "availableFrom" DATE,
+    "contentHash" TEXT,
+    "lastSeenAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Property_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -490,11 +531,99 @@ CREATE TABLE "WebhookEvent" (
     CONSTRAINT "WebhookEvent_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "AuditLog" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT,
+    "userId" TEXT,
+    "action" TEXT NOT NULL,
+    "entityType" TEXT NOT NULL,
+    "entityId" TEXT,
+    "metadata" JSONB,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Organization_slug_key" ON "Organization"("slug");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE INDEX "OrganizationMember_userId_idx" ON "OrganizationMember"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OrganizationMember_organizationId_userId_key" ON "OrganizationMember"("organizationId", "userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Invitation_tokenHash_key" ON "Invitation"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "Invitation_organizationId_email_idx" ON "Invitation"("organizationId", "email");
+
+-- CreateIndex
+CREATE INDEX "Agent_organizationId_status_idx" ON "Agent"("organizationId", "status");
+
+-- CreateIndex
+CREATE INDEX "Agent_responsibleUserId_idx" ON "Agent"("responsibleUserId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WhatsappSession_agentId_key" ON "WhatsappSession"("agentId");
+
+-- CreateIndex
+CREATE INDEX "WhatsappSession_organizationId_status_idx" ON "WhatsappSession"("organizationId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WhatsappSession_organizationId_providerSessionId_key" ON "WhatsappSession"("organizationId", "providerSessionId");
+
 -- CreateIndex
 CREATE INDEX "AgentSessionAssignment_organizationId_agentId_idx" ON "AgentSessionAssignment"("organizationId", "agentId");
 
 -- CreateIndex
 CREATE INDEX "AgentSessionAssignment_organizationId_whatsappSessionId_idx" ON "AgentSessionAssignment"("organizationId", "whatsappSessionId");
+
+-- CreateIndex
+CREATE INDEX "Lead_organizationId_stage_idx" ON "Lead"("organizationId", "stage");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Lead_organizationId_phone_key" ON "Lead"("organizationId", "phone");
+
+-- CreateIndex
+CREATE INDEX "Conversation_organizationId_mode_idx" ON "Conversation"("organizationId", "mode");
+
+-- CreateIndex
+CREATE INDEX "Conversation_organizationId_status_lastMessageAt_idx" ON "Conversation"("organizationId", "status", "lastMessageAt");
+
+-- CreateIndex
+CREATE INDEX "Conversation_assignedUserId_idx" ON "Conversation"("assignedUserId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Conversation_organizationId_leadId_sessionId_key" ON "Conversation"("organizationId", "leadId", "sessionId");
+
+-- CreateIndex
+CREATE INDEX "Message_conversationId_createdAt_idx" ON "Message"("conversationId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Message_organizationId_status_idx" ON "Message"("organizationId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Message_sessionId_providerMessageId_key" ON "Message"("sessionId", "providerMessageId");
+
+-- CreateIndex
+CREATE INDEX "Property_organizationId_status_operationType_idx" ON "Property"("organizationId", "status", "operationType");
+
+-- CreateIndex
+CREATE INDEX "Property_organizationId_city_idx" ON "Property"("organizationId", "city");
+
+-- CreateIndex
+CREATE INDEX "Property_organizationId_price_idx" ON "Property"("organizationId", "price");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Property_organizationId_propertySourceId_externalReference_key" ON "Property"("organizationId", "propertySourceId", "externalReference");
 
 -- CreateIndex
 CREATE INDEX "PropertyMedia_propertyId_position_idx" ON "PropertyMedia"("propertyId", "position");
@@ -557,55 +686,37 @@ CREATE INDEX "WebhookEvent_status_receivedAt_idx" ON "WebhookEvent"("status", "r
 CREATE UNIQUE INDEX "WebhookEvent_provider_externalEventId_key" ON "WebhookEvent"("provider", "externalEventId");
 
 -- CreateIndex
-CREATE INDEX "OrganizationMember_userId_idx" ON "OrganizationMember"("userId");
-
--- CreateIndex
-CREATE INDEX "Agent_organizationId_status_idx" ON "Agent"("organizationId", "status");
-
--- CreateIndex
-CREATE INDEX "Agent_responsibleUserId_idx" ON "Agent"("responsibleUserId");
-
--- CreateIndex
-CREATE INDEX "WhatsappSession_organizationId_status_idx" ON "WhatsappSession"("organizationId", "status");
-
--- CreateIndex
-CREATE INDEX "Lead_organizationId_stage_idx" ON "Lead"("organizationId", "stage");
-
--- CreateIndex
-CREATE INDEX "Conversation_organizationId_status_lastMessageAt_idx" ON "Conversation"("organizationId", "status", "lastMessageAt");
-
--- CreateIndex
-CREATE INDEX "Conversation_assignedUserId_idx" ON "Conversation"("assignedUserId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Conversation_organizationId_leadId_sessionId_key" ON "Conversation"("organizationId", "leadId", "sessionId");
-
--- CreateIndex
-CREATE INDEX "Message_conversationId_createdAt_idx" ON "Message"("conversationId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Message_organizationId_status_idx" ON "Message"("organizationId", "status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Message_sessionId_providerMessageId_key" ON "Message"("sessionId", "providerMessageId");
-
--- CreateIndex
-CREATE INDEX "Property_organizationId_status_operationType_idx" ON "Property"("organizationId", "status", "operationType");
-
--- CreateIndex
-CREATE INDEX "Property_organizationId_city_idx" ON "Property"("organizationId", "city");
-
--- CreateIndex
-CREATE INDEX "Property_organizationId_price_idx" ON "Property"("organizationId", "price");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Property_organizationId_propertySourceId_externalReference_key" ON "Property"("organizationId", "propertySourceId", "externalReference");
+CREATE INDEX "AuditLog_organizationId_createdAt_idx" ON "AuditLog"("organizationId", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_action_createdAt_idx" ON "AuditLog"("action", "createdAt");
 
 -- AddForeignKey
+ALTER TABLE "OrganizationMember" ADD CONSTRAINT "OrganizationMember_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OrganizationMember" ADD CONSTRAINT "OrganizationMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_invitedById_fkey" FOREIGN KEY ("invitedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Agent" ADD CONSTRAINT "Agent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Agent" ADD CONSTRAINT "Agent_responsibleUserId_fkey" FOREIGN KEY ("responsibleUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Agent" ADD CONSTRAINT "Agent_modelConfigId_fkey" FOREIGN KEY ("modelConfigId") REFERENCES "AiModelConfig"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WhatsappSession" ADD CONSTRAINT "WhatsappSession_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WhatsappSession" ADD CONSTRAINT "WhatsappSession_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AgentSessionAssignment" ADD CONSTRAINT "AgentSessionAssignment_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -620,13 +731,31 @@ ALTER TABLE "AgentSessionAssignment" ADD CONSTRAINT "AgentSessionAssignment_what
 ALTER TABLE "AgentSessionAssignment" ADD CONSTRAINT "AgentSessionAssignment_assignedByUserId_fkey" FOREIGN KEY ("assignedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Lead" ADD CONSTRAINT "Lead_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Lead" ADD CONSTRAINT "Lead_assignedUserId_fkey" FOREIGN KEY ("assignedUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "Lead"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "WhatsappSession"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_assignedUserId_fkey" FOREIGN KEY ("assignedUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Message" ADD CONSTRAINT "Message_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Message" ADD CONSTRAINT "Message_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Message" ADD CONSTRAINT "Message_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "WhatsappSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -639,6 +768,9 @@ ALTER TABLE "Message" ADD CONSTRAINT "Message_mediaId_fkey" FOREIGN KEY ("mediaI
 
 -- AddForeignKey
 ALTER TABLE "Message" ADD CONSTRAINT "Message_replyToMessageId_fkey" FOREIGN KEY ("replyToMessageId") REFERENCES "Message"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Property" ADD CONSTRAINT "Property_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Property" ADD CONSTRAINT "Property_propertySourceId_fkey" FOREIGN KEY ("propertySourceId") REFERENCES "PropertySource"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -721,74 +853,20 @@ ALTER TABLE "WebhookEvent" ADD CONSTRAINT "WebhookEvent_organizationId_fkey" FOR
 -- AddForeignKey
 ALTER TABLE "WebhookEvent" ADD CONSTRAINT "WebhookEvent_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "WhatsappSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- ---------------------------------------------------------------------------
--- Traslado de datos de las tablas que cambiaron de nombre, y solo entonces
--- se eliminan las antiguas. La migración generada las borraba de entrada, lo
--- que habría perdido las visitas y las credenciales de IA ya configuradas.
--- ---------------------------------------------------------------------------
+-- AddForeignKey
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-INSERT INTO "Appointment" (
-  "id", "organizationId", "leadId", "propertyId", "assignedUserId",
-  "startsAt", "endsAt", "timezone", "status", "notes", "source",
-  "syncStatus", "syncVersion", "createdAt", "updatedAt"
-)
-SELECT
-  v."id", v."organizationId", v."leadId",
-  -- La cita nueva sí tiene llave foránea hacia la propiedad; una referencia
-  -- rota se conserva como cita sin propiedad en vez de perder la visita.
-  (SELECT p."id" FROM "Property" p WHERE p."id" = v."propertyId"),
-  v."assignedUserId", v."startsAt", v."endsAt", 'America/Mexico_City',
-  (CASE upper(v."status")
-    WHEN 'CANCELLED' THEN 'CANCELLED'
-    WHEN 'CONFIRMED' THEN 'CONFIRMED'
-    WHEN 'COMPLETED' THEN 'COMPLETED'
-    WHEN 'NO_SHOW' THEN 'NO_SHOW'
-    ELSE 'SCHEDULED' END)::"AppointmentStatus",
-  v."notes", 'CRM', 'PENDING'::"SyncStatus", 0, v."createdAt", v."updatedAt"
-FROM "Visit" v
-WHERE EXISTS (SELECT 1 FROM "Lead" l WHERE l."id" = v."leadId")
-  AND EXISTS (SELECT 1 FROM "User" u WHERE u."id" = v."assignedUserId");
-
--- Los proveedores LLM pasan al catálogo nuevo conservando la clave cifrada:
--- volver a capturarlas obligaría al superadministrador a tenerlas a la mano.
-INSERT INTO "AiProvider" (
-  "id", "name", "kind", "baseUrl", "encryptedApiKey",
-  "supportsTools", "supportsStreaming", "enabled", "createdAt", "updatedAt"
-)
-SELECT
-  p."id", p."name",
-  (CASE upper(p."provider")
-    WHEN 'ANTHROPIC' THEN 'ANTHROPIC'
-    WHEN 'CLAUDE' THEN 'ANTHROPIC'
-    WHEN 'GEMINI' THEN 'GEMINI'
-    WHEN 'GOOGLE' THEN 'GEMINI'
-    WHEN 'OPENAI' THEN 'OPENAI'
-    ELSE 'OPENAI_COMPATIBLE' END)::"AiProviderKind",
-  p."baseUrl", p."encryptedApiKey", true, true, p."enabled", p."createdAt", p."updatedAt"
-FROM "LlmProvider" p;
-
-INSERT INTO "AiModelConfig" (
-  "id", "aiProviderId", "name", "model", "temperature", "maxTokens",
-  "promptVersion", "maxToolIterations", "isDefault", "enabled", "createdAt", "updatedAt"
-)
-SELECT
-  gen_random_uuid(), p."id", p."name" || ' · ' || p."model", p."model", 0.3, 1024, 'v1', 4,
-  (row_number() OVER (ORDER BY p."createdAt") = 1),
-  p."enabled", now(), now()
-FROM "LlmProvider" p;
-
-DROP TABLE "Visit";
-DROP TABLE "LlmProvider";
 
 -- ---------------------------------------------------------------------------
--- Índices únicos parciales que Prisma no puede declarar (spec §11.6): impiden
--- que un agente o una sesión tengan más de una asignación activa a la vez.
+-- Índices únicos parciales que Prisma no puede declarar en el esquema
+-- (spec §11.6): impiden que un agente o una sesión tengan más de una
+-- asignación activa a la vez. `unassignedAt IS NULL` marca la vigente.
 -- ---------------------------------------------------------------------------
 
-CREATE UNIQUE INDEX "AgentSessionAssignment_agent_active_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "AgentSessionAssignment_agent_active_key"
   ON "AgentSessionAssignment" ("agentId")
   WHERE "unassignedAt" IS NULL;
 
-CREATE UNIQUE INDEX "AgentSessionAssignment_session_active_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "AgentSessionAssignment_session_active_key"
   ON "AgentSessionAssignment" ("whatsappSessionId")
   WHERE "unassignedAt" IS NULL;
