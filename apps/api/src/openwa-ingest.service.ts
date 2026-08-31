@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MessageType, Prisma, SessionStatus } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { AutomationService } from './automation.service';
+import { EventsService } from './events.service';
 import { mapProviderStatus } from './openwa.gateway';
 
 /**
@@ -70,6 +71,7 @@ export class OpenWaIngestService {
   constructor(
     private db: PrismaService,
     private automation: AutomationService,
+    private events: EventsService,
   ) {}
 
   async handle(envelope: OpenWaEnvelope): Promise<{ handled: boolean; reason?: string }> {
@@ -176,6 +178,12 @@ export class OpenWaIngestService {
       data: { lastMessageAt: now, lastInboundAt: now, status: 'OPEN' },
     });
 
+    this.events.publish(organizationId, {
+      type: 'message.created',
+      conversationId: conversation.id,
+      leadId: lead.id,
+    });
+
     // La generación de la respuesta ocurre fuera del ciclo HTTP (spec §28.3).
     await this.automation.enqueue(conversation.id);
     return { handled: true };
@@ -258,6 +266,11 @@ export class OpenWaIngestService {
         lastOutboundAt: now,
       },
     });
+    this.events.publish(organizationId, {
+      type: 'conversation.updated',
+      conversationId: conversation.id,
+      mode: 'HUMAN_ACTIVE',
+    });
     this.log.log(`Control humano desde teléfono en la conversación ${conversation.id}`);
     return { handled: true, reason: 'toma de control desde el teléfono' };
   }
@@ -315,6 +328,11 @@ export class OpenWaIngestService {
         ...(status === 'CONNECTED' ? { connectedAt: new Date(), failureReason: null } : {}),
         ...(status === 'DISCONNECTED' ? { disconnectedAt: new Date() } : {}),
       },
+    });
+    this.events.publish(session.organizationId, {
+      type: 'session.updated',
+      sessionId: session.id,
+      status,
     });
     return { handled: true };
   }

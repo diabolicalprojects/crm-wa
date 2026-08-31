@@ -3,6 +3,7 @@ import { Job, Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { AiGateway, AiMessage, AiResult } from './ai-gateway';
 import { AiToolsService, ToolContext } from './ai-tools.service';
+import { EventsService } from './events.service';
 import { OpenWaGateway } from './openwa.gateway';
 import { PrismaService } from './prisma.service';
 import { SecretsService } from './secrets.service';
@@ -48,6 +49,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     private secrets: SecretsService,
     private ai: AiGateway,
     private tools: AiToolsService,
+    private events: EventsService,
   ) {}
 
   onModuleInit() {
@@ -380,6 +382,12 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
           ? { mode: 'HUMAN_ACTIVE' as const, status: 'PENDING' as const, handoffReason: handoff.reason }
           : {}),
       },
+    });
+
+    this.events.publish(conversation.organizationId, {
+      type: 'message.created',
+      conversationId: conversation.id,
+      leadId: conversation.leadId,
     });
 
     if (recommended.size) await this.recordMatches(context, message.id, [...recommended]);

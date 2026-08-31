@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Avatar, Badge, Banner, Button, Empty, Icon, PageHeader, Skeleton, useToast } from '../components/ui';
 import { request, requestList } from '../lib/api';
+import { useLiveEvents } from '../lib/live';
 import { dateTime, initials, label, money, phone, relative } from '../lib/format';
 
 const FILTERS = [
@@ -38,13 +39,6 @@ export function Conversations() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Sondeo corto: la bandeja debe reflejar lo que llega por WhatsApp sin que
-  // el asesor tenga que recargar (spec §20.4).
-  useEffect(() => {
-    const timer = setInterval(load, 12000);
-    return () => clearInterval(timer);
-  }, [load]);
-
   const loadThread = useCallback(async (id: string) => {
     if (!id) return;
     const [one, thread] = await Promise.all([
@@ -56,10 +50,22 @@ export function Conversations() {
   }, []);
 
   useEffect(() => { loadThread(selectedId).catch(() => {}); }, [selectedId, loadThread]);
-  useEffect(() => {
-    const timer = setInterval(() => loadThread(selectedId).catch(() => {}), 8000);
-    return () => clearInterval(timer);
-  }, [selectedId, loadThread]);
+
+  // El servidor empuja los cambios; la bandeja ya no sondea (spec §20.4).
+  // Solo se recarga lo que el evento señala, no toda la pantalla.
+  useLiveEvents(
+    useCallback(
+      (event) => {
+        if (event.type === 'session.updated') return;
+        load();
+        if ('conversationId' in event && event.conversationId === selectedId) {
+          loadThread(selectedId).catch(() => {});
+        }
+      },
+      [load, loadThread, selectedId],
+    ),
+  );
+
 
   useEffect(() => { bottom.current?.scrollIntoView({ block: 'end' }); }, [messages.length]);
 

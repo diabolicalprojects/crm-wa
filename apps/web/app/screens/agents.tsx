@@ -5,6 +5,7 @@ import {
   type Column,
 } from '../components/ui';
 import { request, requestList } from '../lib/api';
+import { useLiveEvents } from '../lib/live';
 import { OPERATION_MODES, label, phone, relative } from '../lib/format';
 
 /* ------------------------------------------------------------------ agentes */
@@ -286,6 +287,10 @@ export function WhatsApp() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // El estado de la sesión cambia por eventos de OpenWA —se conecta, se cae,
+  // pide QR—, así que la tabla se actualiza sola en vez de sondear.
+  useLiveEvents(useCallback((event) => { if (event.type === 'session.updated') load(); }, [load]));
 
   async function refresh(session: any) {
     try {

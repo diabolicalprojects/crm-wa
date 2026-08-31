@@ -115,6 +115,7 @@ describe('verificación de firma del webhook', () => {
 describe('ingesta de eventos', () => {
   let db: any;
   let automation: any;
+  let events: any;
   let ingest: OpenWaIngestService;
 
   beforeEach(() => {
@@ -131,7 +132,8 @@ describe('ingesta de eventos', () => {
       },
       auditLog: { create: vi.fn() },
     };
-    ingest = new OpenWaIngestService(db, automation);
+    events = { publish: vi.fn(), stream: vi.fn(), connections: vi.fn() };
+    ingest = new OpenWaIngestService(db, automation, events);
   });
 
   it('registra un mensaje entrante y encola la respuesta de la IA', async () => {
@@ -221,6 +223,18 @@ describe('ingesta de eventos', () => {
     await ingest.handle(envelope('session.restriction', { active: true, kind: 'SPAM', code: 'X1' }));
     expect(db.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ action: 'WHATSAPP_RESTRICTION_APPLIED' }),
+    });
+  });
+
+  it('avisa a la bandeja en vivo, y solo a la agencia dueña', async () => {
+    await ingest.handle(
+      envelope('message.received', {
+        id: 'wamid-live', from: '5214490000000@c.us', body: 'Hola',
+        type: 'text', kind: 'individual',
+      }),
+    );
+    expect(events.publish).toHaveBeenCalledWith('org-1', {
+      type: 'message.created', conversationId: 'c1', leadId: 'l1',
     });
   });
 

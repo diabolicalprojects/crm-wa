@@ -11,6 +11,8 @@ import { AuthController, AuthService, JwtGuard, RolesGuard } from './auth';
 import { AutomationService } from './automation.service';
 import { ConversationsController } from './conversations.controller';
 import { DashboardController } from './dashboard.controller';
+import { EventsController } from './events.controller';
+import { EventsService } from './events.service';
 import { HealthController } from './health.controller';
 import { ImportsController } from './imports.controller';
 import { LeadsController } from './leads.controller';
@@ -30,6 +32,7 @@ import { WhatsappController } from './whatsapp.controller';
     OrganizationsController,
     DashboardController,
     AuditController,
+    EventsController,
     ImportsController,
     AiController,
     AppointmentsController,
@@ -43,6 +46,7 @@ import { WhatsappController } from './whatsapp.controller';
   providers: [
     PrismaService,
     SecretsService,
+    EventsService,
     AuthService,
     OpenWaGateway,
     OpenWaIngestService,
