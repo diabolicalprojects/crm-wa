@@ -142,6 +142,17 @@ export class OpenWaIngestService {
       update: {},
     });
 
+    // Una conversación creada antes de que el canal tuviera agente se quedaba
+    // sin él para siempre, y el worker exige un agente activo para responder.
+    // Adoptar el del canal la reincorpora en cuanto se asigna uno.
+    if (!conversation.agentId && session.agentId) {
+      await this.db.conversation.update({
+        where: { id: conversation.id },
+        data: { agentId: session.agentId },
+      });
+      conversation.agentId = session.agentId;
+    }
+
     const created = await this.createMessageOnce({
       organizationId,
       conversationId: conversation.id,

@@ -170,6 +170,14 @@ export class AgentsController {
         include: { agent: { select: { id: true, name: true } } },
       });
 
+      // Las conversaciones que ese canal ya tenía nacieron sin agente y el
+      // worker las descarta por eso. Adoptan el recién asignado para que
+      // vuelvan a la automatización sin esperar un mensaje nuevo.
+      await tx.conversation.updateMany({
+        where: { organizationId, sessionId: session.id, agentId: null },
+        data: { agentId },
+      });
+
       // Historial de asignaciones (spec §11.6): el cambio queda trazado.
       await tx.agentSessionAssignment.create({
         data: {

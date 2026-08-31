@@ -50,6 +50,7 @@ describe('CRUD del CRM aislado por agencia', () => {
         updateMany: vi.fn(),
       },
       agentSessionAssignment: { create: vi.fn(), updateMany: vi.fn() },
+      conversation: { updateMany: vi.fn().mockResolvedValue({ count: 3 }) },
       auditLog: { create: vi.fn() },
     };
     db.$transaction = vi.fn((callback: any) =>
@@ -153,6 +154,23 @@ describe('CRUD del CRM aislado por agencia', () => {
     });
     expect(db.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ action: 'AGENT_SESSION_ASSIGNED' }),
+    });
+  });
+
+  /**
+   * Una conversación nacida antes de que el canal tuviera agente se quedaba sin
+   * él para siempre, y el worker la descartaba en silencio. Asignar el canal
+   * debe reincorporarlas sin esperar un mensaje nuevo.
+   */
+  it('adopta las conversaciones huérfanas del canal al asignarlo', async () => {
+    db.agent.findFirst.mockResolvedValue({ id: 'a1' });
+    db.whatsappSession.findFirst
+      .mockResolvedValueOnce({ id: 's1', agentId: null })
+      .mockResolvedValueOnce(null);
+    await new AgentsController(db).assign(owner, 'org-1', 'a1', { whatsappSessionId: 's1' });
+    expect(db.conversation.updateMany).toHaveBeenCalledWith({
+      where: { organizationId: 'org-1', sessionId: 's1', agentId: null },
+      data: { agentId: 'a1' },
     });
   });
 

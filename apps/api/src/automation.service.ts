@@ -93,14 +93,33 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
       include: {
         lead: true,
         agent: { include: { modelConfig: { include: { provider: true } } } },
-        session: true,
+        // El agente del canal es el respaldo cuando la conversación nació
+        // antes de que ese canal tuviera uno asignado.
+        session: { include: { agent: { include: { modelConfig: { include: { provider: true } } } } } },
         organization: true,
         messages: { orderBy: { createdAt: 'desc' }, take: HISTORY_WINDOW },
       },
     });
 
-    if (!this.canRespond(conversation)) return;
-    const agent = conversation!.agent!;
+    if (!conversation) return;
+    const agent = conversation.agent ?? conversation.session?.agent;
+
+    const blocker = this.blockedReason(conversation, agent);
+    if (blocker || !agent) {
+      // Registrar el motivo es lo que evita tener que salir a inspeccionar la
+      // base para entender por qué un mensaje no obtuvo respuesta.
+      this.log.log(`Conversación ${conversationId} sin respuesta automática: ${blocker}`);
+      return;
+    }
+
+    // La conversación adopta el agente del canal para que la bandeja deje de
+    // mostrarla como "sin agente" y las siguientes vueltas no lo re-resuelvan.
+    if (!conversation.agentId) {
+      await this.db.conversation.update({
+        where: { id: conversation.id },
+        data: { agentId: agent.id },
+      });
+    }
 
     const modelConfig =
       agent.modelConfig ??
@@ -108,24 +127,24 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
         where: {
           enabled: true,
           provider: { enabled: true },
-          OR: [{ organizationId: conversation!.organizationId }, { organizationId: null }],
+          OR: [{ organizationId: conversation.organizationId }, { organizationId: null }],
         },
         include: { provider: true },
         orderBy: [{ organizationId: 'desc' }, { isDefault: 'desc' }],
       }));
 
     if (!modelConfig?.provider) {
-      this.log.warn(`Sin proveedor de IA disponible para ${conversation!.organizationId}`);
+      this.log.warn(`Conversación ${conversationId} sin respuesta: no hay ningún proveedor de IA habilitado para la agencia ${conversation.organizationId}`);
       return;
     }
 
     const startedAt = Date.now();
     const run = await this.db.aiRun.create({
       data: {
-        organizationId: conversation!.organizationId,
+        organizationId: conversation.organizationId,
         conversationId,
         agentId: agent.id,
-        triggerMessageId: conversation!.messages[0]?.id,
+        triggerMessageId: conversation.messages[0]?.id,
         aiProviderId: modelConfig.provider.id,
         aiModelConfigId: modelConfig.id,
         model: modelConfig.model,
@@ -135,7 +154,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     });
 
     try {
-      const outcome = await this.generate(conversation!, agent, modelConfig, run.id);
+      const outcome = await this.generate(conversation, agent, modelConfig, run.id);
       await this.db.aiRun.update({
         where: { id: run.id },
         data: {
@@ -163,17 +182,33 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private canRespond(conversation: any): boolean {
-    if (!conversation) return false;
-    if (conversation.mode !== 'AI_ACTIVE') return false;
-    if (!conversation.agent?.aiEnabled || conversation.agent.status !== 'ACTIVE') return false;
-    if (conversation.agent.operationMode === 'HUMAN') return false;
-    if (!conversation.session?.providerSessionId) return false;
-    if (conversation.session.status !== 'CONNECTED') {
-      this.log.warn(`Sesión ${conversation.session?.id} no conectada; no se envía`);
-      return false;
+  /** Devuelve el motivo por el que no se puede responder, o `null` si sí. */
+  private blockedReason(conversation: any, agent: any): string | null {
+    if (conversation.mode !== 'AI_ACTIVE') {
+      return `la conversación está en ${conversation.mode}`;
     }
-    return this.withinBusinessHours(conversation.agent.businessHours);
+    if (!agent) {
+      return 'ni la conversación ni su canal tienen un agente asignado';
+    }
+    if (agent.status !== 'ACTIVE') {
+      return `el agente "${agent.name}" está en ${agent.status}, no ACTIVE`;
+    }
+    if (!agent.aiEnabled) {
+      return `el agente "${agent.name}" tiene la IA deshabilitada`;
+    }
+    if (agent.operationMode === 'HUMAN') {
+      return `el agente "${agent.name}" opera en modo solo humano`;
+    }
+    if (!conversation.session?.providerSessionId) {
+      return 'el canal no existe en OpenWA';
+    }
+    if (conversation.session.status !== 'CONNECTED') {
+      return `el canal está en ${conversation.session.status}, no CONNECTED`;
+    }
+    if (!this.withinBusinessHours(agent.businessHours)) {
+      return 'está fuera del horario configurado del agente';
+    }
+    return null;
   }
 
   /** `businessHours` es `{ timezone?, days: {mon:[["09:00","18:00"]], …} }`. */
