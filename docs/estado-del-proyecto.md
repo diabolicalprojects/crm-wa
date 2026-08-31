@@ -1,7 +1,7 @@
 # Estado del proyecto — Horizonte CRM
 
 > Documento de contexto para retomar el trabajo. Última actualización:
-> 31 de agosto de 2026, commit `f18f12a`.
+> 31 de agosto de 2026, commit `c252811`.
 >
 > Complementa, no reemplaza:
 > - [`especificacion-crm-ia-openwa-inmobiliaria.md`](../especificacion-crm-ia-openwa-inmobiliaria.md) — qué debe ser el producto
@@ -56,14 +56,19 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
 - CRUD de propiedades, prospectos, agentes, visitas.
 - Importación CSV/Excel con encabezados en español.
 - Conexión de números por QR; los mensajes entrantes llegan y se registran.
-- Bandeja de tres columnas con panel del prospecto.
-- La IA responde, captura preferencias y califica al prospecto.
+- Bandeja de tres columnas con panel del prospecto, **en tiempo real por SSE**.
+- La IA responde, usa herramientas, captura preferencias y califica.
+- **Memoria de conversación**: condensa lo que sale de la ventana reciente.
+- **Reglas de escalamiento** configurables por agencia.
+- **Salud del sistema y métricas** en la consola de superadministración.
+- **Google Calendar**: OAuth, calendario personal y compartido, sincronización
+  de visitas con reintentos.
 
 ### Pendiente de verificar
 
-- **El ciclo completo de herramientas.** La IA respondió y calificó, pero
-  `searchProperties` nunca llegó a ejecutarse por los fallos de la sección 4.
-  Falta una conversación de punta a punta que recomiende una propiedad real.
+- **Google Calendar de punta a punta.** Implementado y probado con mocks, pero
+  nunca ejercido contra credenciales reales: falta capturarlas, vincular un
+  calendario y confirmar que una visita aparece en Google.
 
 ### Pendiente de configurar
 
@@ -74,19 +79,19 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
    Habilitar facturación o conectar Anthropic/OpenAI.
 3. **Importar el inventario** de [`scripts/seed/inventario-demo.csv`](../scripts/seed/inventario-demo.csv)
    (24 propiedades, ambas operaciones, los seis tipos).
+4. **Credenciales OAuth de Google** en Superadministración → Google Calendar.
+   Ahí aparece la URI de redirección exacta que hay que registrar en Google
+   Cloud; un carácter de diferencia rompe el flujo sin explicar por qué.
 
 ### No implementado
 
-Las tres capas grandes de la spec que siguen sin existir:
-
 - **Fuentes de inventario** API, XML/JSON y Google Sheets (§14.4). Solo hay
-  carga manual y CSV/Excel.
-- **Google Calendar** (§8.7). El modelo `Appointment` guarda `personalEventId`,
-  `sharedEventId` y `syncStatus`, pero nada sincroniza.
+  carga manual y CSV/Excel. El esquema ya tiene `PropertySource` y
+  `PropertySyncRun`; falta el motor de mapeo y el worker.
 - **Multimedia** (§21). No se reciben ni almacenan imágenes ni documentos.
-
-Tampoco hay observabilidad estructurada (§19) ni pruebas de integración/E2E
-(§22.2, §22.3).
+  Requiere decidir almacenamiento: no hay S3 ni MinIO en la infraestructura.
+- **Pruebas E2E** del guion completo de §22.3 y evaluaciones antialucinación
+  de §22.4.
 
 ---
 
@@ -220,6 +225,39 @@ viejo en Redis.
 
 **Arreglo:** `removeOnFail: true` **y** `enqueue` retira el trabajo previo si
 está en estado terminal, lo que repara las atascadas al siguiente mensaje.
+
+### 4.9 Las pruebas críticas nunca se ejecutaban
+
+`vitest.config.mts` excluía `**/openwa*.spec.ts` y `**/whatsapp*.spec.ts`, así
+que las pruebas de la verificación HMAC, la ingesta del webhook y el eco
+`message.sent` se escribían y **jamás corrían**. La cobertura tenía el mismo
+problema al revés: el umbral de 80% se cumplía porque excluía los archivos
+grandes sin pruebas, midiendo solo lo ya cubierto. Sobre todo el backend era
+39%.
+
+Las exclusiones venían del repositorio original, seguramente para que los
+umbrales pasaran cuando esa parte no tenía pruebas. Convirtieron la suite en
+decorativa justo donde más importaba.
+
+**Arreglo:** sin exclusiones por nombre; umbrales como trinquete sobre la
+cobertura real de todo el backend. Y un mock contractual
+([`openwa-contract.mock.ts`](../apps/api/src/openwa-contract.mock.ts)) como
+única fuente de payloads en las pruebas de ingesta: el código original asumía
+un contrato inventado y las pruebas usaban esa misma forma imaginaria, así que
+pasaban mientras producción no recibía un solo mensaje.
+
+### 4.10 Gemini 3 y la firma de razonamiento
+
+Ver 4.7. Se repite aquí el hecho operativo: **el botón «Probar» de un proveedor
+de IA hace una llamada sin herramientas**, así que puede salir verde mientras
+el ciclo con herramientas está roto. Fue lo que ocurrió.
+
+### 4.11 Un barrido concurrente habría duplicado eventos
+
+En `CalendarSyncService`, el indicador de «barrido en curso» se levantaba
+después de un `await`, así que dos barridos simultáneos pasaban ambos la guarda.
+Lo encontró una prueba antes de llegar a producción — el único de esta lista que
+no costó una falla real.
 
 ---
 
