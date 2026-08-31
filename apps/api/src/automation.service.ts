@@ -6,7 +6,7 @@ import { AiToolsService, ToolContext } from './ai-tools.service';
 import { OpenWaGateway } from './openwa.gateway';
 import { PrismaService } from './prisma.service';
 import { SecretsService } from './secrets.service';
-import { buildSystemPrompt, PROMPT_VERSION } from './prompt';
+import { buildSystemPrompt, PROMPT_VERSION, SUMMARY_INSTRUCTIONS } from './prompt';
 
 /**
  * Worker de respuestas automáticas.
@@ -25,6 +25,15 @@ import { buildSystemPrompt, PROMPT_VERSION } from './prompt';
 const DEBOUNCE_MS = Number(process.env.AI_DEBOUNCE_MS ?? 4000);
 const MAX_TOOL_ITERATIONS = 5;
 const HISTORY_WINDOW = 16;
+
+/**
+ * Memoria de la conversación (spec §13.7). La ventana reciente sola no basta:
+ * pasada esa cantidad de mensajes el agente olvidaría lo hablado antes. Cuando
+ * la conversación crece se condensa lo que queda fuera de la ventana, y se
+ * recondensa cada tantos mensajes nuevos para no pagar un resumen por turno.
+ */
+const SUMMARY_AFTER = HISTORY_WINDOW;
+const SUMMARY_EVERY = 10;
 
 @Injectable()
 export class AutomationService implements OnModuleInit, OnModuleDestroy {
@@ -192,6 +201,11 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
           finishedAt: new Date(),
         },
       });
+      // Después de responder, no antes: condensar la memoria no debe retrasar
+      // la respuesta al prospecto.
+      await this.refreshSummary(conversation, modelConfig).catch((error) =>
+        this.log.warn(`No se pudo condensar la memoria de ${conversationId}: ${error.message}`),
+      );
       await this.requeueIfNewer(conversationId, outcome.lastSeenMessageId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'error desconocido';
@@ -382,6 +396,67 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     }
 
     return { sent: true, toolsInvoked, promptTokens, completionTokens, lastSeenMessageId };
+  }
+
+  /**
+   * Condensa lo que quedó fuera de la ventana reciente y lo guarda en la
+   * conversación, que es de donde `buildSystemPrompt` lo lee. Sin esto el
+   * agente olvidaba todo lo hablado más allá de los últimos mensajes: el campo
+   * `summary` se leía pero nunca se escribía.
+   */
+  private async refreshSummary(conversation: any, modelConfig: any) {
+    const total = await this.db.message.count({ where: { conversationId: conversation.id } });
+    if (total <= SUMMARY_AFTER) return;
+
+    // Recondensar solo cada cierto número de mensajes nuevos: un resumen por
+    // turno multiplicaría el costo sin aportar memoria adicional.
+    if (conversation.summaryUpdatedAt) {
+      const nuevos = await this.db.message.count({
+        where: { conversationId: conversation.id, createdAt: { gt: conversation.summaryUpdatedAt } },
+      });
+      if (nuevos < SUMMARY_EVERY) return;
+    }
+
+    // Solo lo que cae fuera de la ventana: lo reciente ya viaja completo.
+    const previos = await this.db.message.findMany({
+      where: { conversationId: conversation.id, text: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      skip: HISTORY_WINDOW,
+      take: 60,
+      select: { direction: true, senderType: true, text: true },
+    });
+    if (!previos.length) return;
+
+    const transcripcion = previos
+      .reverse()
+      .map((m) => `${m.direction === 'INBOUND' ? 'Prospecto' : m.senderType === 'AI' ? 'Agente' : 'Asesor'}: ${m.text}`)
+      .join('\n');
+
+    const result = await this.ai.generate(
+      {
+        kind: modelConfig.provider.kind,
+        apiKey: this.secrets.decrypt(modelConfig.provider.encryptedApiKey),
+        baseUrl: modelConfig.provider.baseUrl ?? undefined,
+      },
+      {
+        model: modelConfig.model,
+        system: SUMMARY_INSTRUCTIONS,
+        messages: [
+          {
+            role: 'user',
+            content: `${conversation.summary ? `Resumen previo:\n${conversation.summary}\n\n` : ''}Conversación a condensar:\n${transcripcion}`,
+          },
+        ],
+        maxTokens: 600,
+      },
+    );
+
+    if (!result.text) return;
+    await this.db.conversation.update({
+      where: { id: conversation.id },
+      data: { summary: result.text, summaryUpdatedAt: new Date() },
+    });
+    this.log.log(`Memoria condensada en la conversación ${conversation.id}`);
   }
 
   /** Deja constancia de qué recomendó la IA y por qué (spec §11.13). */

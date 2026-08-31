@@ -97,6 +97,13 @@ Fecha y hora actual: ${new Date().toLocaleString('es-MX', { timeZone: organizati
     );
   }
 
+  // 5. Reglas de escalamiento configuradas por la agencia. Se suman a las
+  // condiciones fijas de §13.6, nunca las reemplazan.
+  const handoff = formatHandoffRules(agent.handoffRules);
+  if (handoff) {
+    sections.push(`Condiciones adicionales para transferir a un humano:\n${handoff}`);
+  }
+
   // 6. Resumen validado del lead.
   const leadLines = [
     `Prospecto: ${lead.name || 'nombre desconocido'} (${lead.phone})`,
@@ -122,10 +129,30 @@ Fecha y hora actual: ${new Date().toLocaleString('es-MX', { timeZone: organizati
   return sections.join('\n\n---\n\n');
 }
 
+/**
+ * Reglas de escalamiento de la agencia. Acepta un arreglo de textos o un objeto
+ * `{condición: activa}`; cualquier otra forma se ignora en vez de romper el
+ * prompt, porque el campo es JSON libre capturado desde la consola.
+ */
+export function formatHandoffRules(rules: unknown): string | null {
+  if (Array.isArray(rules)) {
+    const items = rules.filter((rule) => typeof rule === 'string' && rule.trim());
+    return items.length ? items.map((rule) => `- ${rule}`).join('\n') : null;
+  }
+  if (rules && typeof rules === 'object') {
+    const items = Object.entries(rules as Record<string, unknown>)
+      .filter(([, value]) => value === true || (typeof value === 'string' && value.trim()))
+      .map(([key, value]) => (value === true ? `- ${key}` : `- ${key}: ${value}`));
+    return items.length ? items.join('\n') : null;
+  }
+  return null;
+}
+
 /** Instrucción para condensar la conversación cuando crece (spec §13.7). */
 export const SUMMARY_INSTRUCTIONS = `Resume la conversación para conservar la memoria del caso.
 Distingue explícitamente tres bloques:
 - HECHOS CONFIRMADOS: lo que el prospecto dijo textualmente.
 - INFERENCIAS: lo que dedujiste, marcado como tal.
 - PENDIENTES: lo que falta preguntar o resolver.
-No inventes datos y no incluyas propiedades que no se hayan mostrado.`;
+No inventes datos y no incluyas propiedades que no se hayan mostrado.
+Sé breve: no más de 12 líneas.`;
