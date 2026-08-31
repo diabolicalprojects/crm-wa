@@ -1,50 +1,180 @@
 'use client';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import './globals.css'; import './fixes.css'; import './monochrome.css';
-import { request } from './api-client';
-type User={id:string;name:string;email:string;isSuperAdmin:boolean;organizationId?:string;role?:string};
-type Organization={id:string;name:string;slug:string};
-type FormField={name:string;label:string;type?:string;required?:boolean;options?:{value:string;label:string}[]};
-type Page='Resumen'|'Conversaciones'|'Leads'|'Propiedades'|'Agentes IA'|'WhatsApp'|'Equipo'|'Auditoría'|'Administración';
-const pages:Page[]=['Resumen','Conversaciones','Leads','Propiedades','Agentes IA','WhatsApp','Equipo','Auditoría','Administración'];
-function Empty({text}:{text:string}){return <div className="real-empty"><span>○</span><b>Sin información todavía</b><p>{text}</p></div>}
-function ModalForm({title,fields,onClose,onSave}:{title:string;fields:FormField[];onClose:()=>void;onSave:(x:Record<string,string>)=>Promise<void>}){const [busy,setBusy]=useState(false);const [error,setError]=useState('');return <div className="modal-backdrop"><form className="modal" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{await onSave(Object.fromEntries(new FormData(e.currentTarget) as any));onClose()}catch(x){setError(x instanceof Error?x.message:'Error')}finally{setBusy(false)}}}><h2>{title}</h2>{fields.map(f=><label key={f.name}>{f.label}{f.type==='textarea'?<textarea name={f.name} required={f.required!==false} rows={4}/>:f.type==='select'?<select name={f.name} required={f.required!==false}>{f.options?.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>:<input name={f.name} type={f.type||'text'} required={f.required!==false}/>}</label>)}{error&&<p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Cancelar</button><button className="primary" disabled={busy}>{busy?'Guardando…':'Guardar'}</button></div></form></div>}
-function Login({onLogin}:{onLogin:(u:User)=>void}){const [bootstrap,setBootstrap]=useState(false);const [error,setError]=useState('');const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setError('');const body=Object.fromEntries(new FormData(e.currentTarget) as any);try{if(bootstrap){await request('/auth/bootstrap',{method:'POST',body:JSON.stringify(body)});setBootstrap(false);return}const data=await request('/auth/login',{method:'POST',body:JSON.stringify(body)});localStorage.setItem('crm_token',data.accessToken);onLogin(data.user)}catch(x){setError(x instanceof Error?x.message:'No fue posible entrar')}};return <main className="login-page"><form className="login-card" onSubmit={submit}><div className="brand login-brand"><span className="brand-mark">H</span><span><b>Horizonte</b><small>CRM inmobiliario</small></span></div><h1>{bootstrap?'Crear superusuario':'Iniciar sesión'}</h1><p>{bootstrap?'Disponible solamente antes de crear el primer administrador.':'Accede a la operación de tu agencia.'}</p>{bootstrap&&<label>Nombre<input name="name" required/></label>}<label>Correo<input name="email" type="email" required/></label><label>Contraseña<input name="password" type="password" minLength={8} required/></label>{bootstrap&&<label>Secreto de instalación<input name="bootstrapSecret" type="password"/></label>}{error&&<p className="form-error">{error}</p>}<button className="primary login-submit">{bootstrap?'Crear acceso':'Entrar'}</button><button type="button" className="link-button" onClick={()=>setBootstrap(!bootstrap)}>{bootstrap?'Volver al login':'Configurar primera cuenta'}</button></form></main>}
-function DataPage({title,description,path,columns,create,children}:{title:string;description:string;path:string;columns:[string,(x:any)=>any][];create?:{title:string;fields:FormField[]};children?:(data:any[],reload:()=>void)=>React.ReactNode}){const [data,setData]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [modal,setModal]=useState(false);const load=useCallback(()=>{setLoading(true);request(path).then(x=>setData(Array.isArray(x)?x:[])).catch(e=>setError(e.message)).finally(()=>setLoading(false))},[path]);useEffect(load,[load]);return <section className="content"><div className="page-header"><div><div className="eyebrow">DATOS REALES</div><h1>{title}</h1><p>{description}</p></div>{create&&<button className="primary" onClick={()=>setModal(true)}>＋ Crear</button>}</div>{error&&<div className="error-banner">{error}</div>}{loading?<div className="loading">Cargando…</div>:data.length?<div className="card table-card"><table><thead><tr>{columns.map(c=><th key={c[0]}>{c[0]}</th>)}</tr></thead><tbody>{data.map((row,i)=><tr key={row.id||i}>{columns.map(c=><td key={c[0]}>{c[1](row)}</td>)}</tr>)}</tbody></table></div>:<Empty text={'Crea el primer registro de '+title.toLowerCase()+' para comenzar.'}/>} {children?.(data,load)} {modal&&create&&<ModalForm title={create.title} fields={create.fields} onClose={()=>setModal(false)} onSave={async body=>{await request(path,{method:'POST',body:JSON.stringify(body)});load()}}/>}</section>}
-function Dashboard(){const [d,setD]=useState<any>();const [error,setError]=useState('');useEffect(()=>{request('/dashboard').then(setD).catch(e=>setError(e.message))},[]);if(error)return <section className="content"><div className="error-banner">{error}</div></section>;if(!d)return <section className="content"><div className="loading">Cargando operación…</div></section>;const m=d.metrics;return <section className="content"><div className="page-header"><div><div className="eyebrow">OPERACIÓN EN TIEMPO REAL</div><h1>Resumen</h1><p>Información calculada directamente desde PostgreSQL.</p></div></div><div className="metrics">{[['Conversaciones',m.conversations],['Leads',m.leads],['Propiedades disponibles',m.properties],['Agentes activos',m.agents],['WhatsApp conectados',m.sessions]].map(x=><div className="metric" key={x[0]}><small>{x[0]}</small><strong>{x[1]}</strong></div>)}</div><div className="card"><div className="card-title"><div><h2>Conversaciones recientes</h2><p>Última actividad registrada.</p></div></div>{d.recent?.length?d.recent.map((c:any)=><div className="conversation-row" key={c.id}><span className="avatar">{(c.lead.name||c.lead.phone).slice(0,2).toUpperCase()}</span><span className="conversation-copy"><b>{c.lead.name||c.lead.phone}</b><small>{c.messages?.[0]?.text||'Sin mensajes'}</small></span><span className="badge">{c.mode}</span></div>):<Empty text="Las conversaciones aparecerán cuando OpenWA reciba mensajes."/>}</div></section>}
-function Conversations(){const [items,setItems]=useState<any[]>([]);const [selected,setSelected]=useState<any>();const [messages,setMessages]=useState<any[]>([]);const load=()=>request('/conversations').then((x:any[])=>{setItems(x);if(!selected&&x[0])setSelected(x[0])});useEffect(()=>{load().catch(()=>{})},[]);useEffect(()=>{if(selected)request('/conversations/'+selected.id+'/messages').then(setMessages)},[selected]);return <section className="content"><div className="page-header"><div><div className="eyebrow">OPENWA</div><h1>Conversaciones</h1><p>Mensajes persistidos y atención humana o automática.</p></div></div>{!items.length?<Empty text="Conecta una sesión OpenWA y envía un mensaje para iniciar la bandeja."/>:<div className="inbox"><div className="inbox-list">{items.map(c=><button className={'conversation-row '+(selected?.id===c.id?'selected':'')} key={c.id} onClick={()=>setSelected(c)}><span className="avatar">{(c.lead.name||c.lead.phone).slice(0,2)}</span><span className="conversation-copy"><b>{c.lead.name||c.lead.phone}</b><small>{c.messages?.[0]?.text||'Sin mensajes'}</small></span></button>)}</div>{selected&&<div className="chat"><div className="chat-header"><div><b>{selected.lead.name||selected.lead.phone}</b><small>{selected.mode}</small></div><div className="chat-actions"><button onClick={async()=>{await request('/conversations/'+selected.id+(selected.mode==='HUMAN_ACTIVE'?'/return-to-ai':'/takeover'),{method:'POST'});await load()}}>{selected.mode==='HUMAN_ACTIVE'?'Devolver a IA':'Tomar control'}</button></div></div><div className="chat-messages">{messages.map(m=><div className={'message '+(m.direction==='OUTBOUND'?'outbound':'inbound')} key={m.id}>{m.text||'Mensaje multimedia'}<small>{new Date(m.createdAt).toLocaleString()}</small></div>)}</div><form className="composer-input" onSubmit={async e=>{e.preventDefault();const input=e.currentTarget.elements.namedItem('message') as HTMLInputElement;if(!input.value)return;await request('/conversations/'+selected.id+'/messages',{method:'POST',body:JSON.stringify({text:input.value})});input.value='';setMessages(await request('/conversations/'+selected.id+'/messages'))}}><input name="message" placeholder="Escribe un mensaje"/><button>Enviar</button></form></div>}</div>}</section>}
-function Properties(){return <DataPage title="Propiedades" description="Inventario que puede consultar el agente de IA." path="/properties" columns={[['PROPIEDAD',x=><><b>{x.title}</b><small className="cell-sub">{x.externalId||x.id}</small></>],['UBICACIÓN',x=>x.location],['OPERACIÓN',x=>x.operationType],['PRECIO',x=>Number(x.price).toLocaleString('es-MX',{style:'currency',currency:x.currency})],['ESTADO',x=>x.status]]} create={{title:'Nueva propiedad',fields:[{name:'title',label:'Título'},{name:'operationType',label:'Operación'},{name:'propertyType',label:'Tipo'},{name:'location',label:'Ubicación'},{name:'price',label:'Precio',type:'number'}]}}>{(_d,reload)=><div className="import-box"><b>Importar inventario CSV</b><form onSubmit={async e=>{e.preventDefault();await request('/imports/properties',{method:'POST',body:new FormData(e.currentTarget)});reload()}}><input name="file" type="file" accept=".csv" required/><button className="secondary">Importar</button></form></div>}</DataPage>}
-function Leads(){return <DataPage title="Leads" description="Prospectos reales identificados por teléfono." path="/leads" columns={[['LEAD',x=><><b>{x.name||'Sin nombre'}</b><small className="cell-sub">{x.phone}</small></>],['ETAPA',x=>x.stage],['PUNTUACIÓN',x=>x.score],['CONVERSACIONES',x=>x._count?.conversations||0],['ACTUALIZADO',x=>new Date(x.updatedAt).toLocaleString()]]} create={{title:'Nuevo lead',fields:[{name:'name',label:'Nombre',required:false},{name:'phone',label:'Teléfono'},{name:'email',label:'Correo',type:'email',required:false}]}}/>}
-function Agents({organizationId}:{organizationId?:string}){const [members,setMembers] = useState<any[]>([]);useEffect(()=>{if(organizationId)request('/organizations/'+organizationId+'/members').then(setMembers).catch(()=>{})},[organizationId]);return <DataPage title="Agentes IA" description="Identidad, responsable y modo operativo." path="/agents" columns={[['AGENTE',x=><><b>{x.name}</b><small className="cell-sub">{x.description||'Sin descripción'}</small></>],['RESPONSABLE',x=>x.responsibleUser?.name],['MODO',x=>x.operationMode],['ESTADO',x=>x.status],['CANAL',x=>x.session?.phoneNumber||'Sin sesión']]} create={{title:'Nuevo agente',fields:[{name:'name',label:'Nombre'},{name:'description',label:'Descripción',required:false},{name:'responsibleUserId',label:'Usuario responsable',type:'select',options:members.map(m=>({value:m.user.id,label:m.user.name}))},{name:'operationMode',label:'Modo (AI, HUMAN o HYBRID)',type:'select',options:[{value:'AI',label:'AI'},{value:'HUMAN',label:'HUMAN'},{value:'HYBRID',label:'HYBRID'}]},{name:'systemInstructions',label:'Prompt ultra detallado',type:'textarea',required:false}]}}/>}
-function WhatsApp(){const [qr,setQr]=useState('');const [notice,setNotice]=useState('');const [pollingId,setPollingId]=useState('');useEffect(()=>{if(!pollingId)return;const interval=setInterval(async()=>{try{const q=await request('/whatsapp/sessions/'+pollingId+'/qr');setQr(q.qrCode)}catch(e){}},10000);return ()=>clearInterval(interval)},[pollingId]);return <><DataPage title="WhatsApp" description="Sesiones administradas exclusivamente mediante OpenWA." path="/whatsapp/sessions" columns={[['SESIÓN',x=>x.name],['NÚMERO',x=>x.phoneNumber||'Pendiente'],['ESTADO',x=>x.status],['AGENTE',x=>x.agent?.name||'Sin asignar'],['ACCIONES',x=><div className="row-actions"><button className="secondary" onClick={async()=>{const s=await request('/whatsapp/sessions/'+x.id+'/status');setNotice('Estado: '+s.status)}}>Actualizar</button><button className="secondary" onClick={async()=>{const q=await request('/whatsapp/sessions/'+x.id+'/qr');setQr(q.qrCode);setNotice('Escanea este QR desde WhatsApp');setPollingId(x.id)}}>Ver QR</button></div>]]} create={{title:'Nueva sesión OpenWA',fields:[{name:'name',label:'Nombre interno'}]}}/>{(qr||notice)&&<div className="modal-backdrop"><div className="modal qr-modal"><h2>Conectar WhatsApp</h2><p>{notice}</p>{qr&&<img src={qr} alt="Código QR de WhatsApp"/>}<div className="modal-actions"><button className="primary" onClick={()=>{setQr('');setNotice('');setPollingId('')}}>Cerrar</button></div></div></div>}</>}
-function Team({organizationId}:{organizationId?:string}){const [editing,setEditing]=useState<any>();if(!organizationId)return <section className="content"><Empty text="Selecciona una agencia para consultar miembros."/></section>;return <DataPage title="Equipo" description="Miembros, accesos y roles de la agencia." path={'/organizations/'+organizationId+'/members'} columns={[['PERSONA',x=><><b>{x.user.name}</b><small className="cell-sub">{x.user.email}</small></>],['ROL',x=>x.role],['ESTADO',x=>x.status],['ACCESO',x=><button className="secondary" onClick={()=>setEditing(x)}>Restablecer</button>]]} create={{title:'Añadir usuario',fields:[{name:'name',label:'Nombre'},{name:'email',label:'Correo',type:'email'},{name:'password',label:'Contraseña temporal',type:'password'},{name:'role',label:'Rol (OWNER, ADMIN, SUPERVISOR o ADVISOR)'}]}}>{(_data,reload)=>editing&&<ModalForm title={'Restablecer acceso de '+editing.user.name} fields={[{name:'password',label:'Nueva contraseña temporal',type:'password'}]} onClose={()=>setEditing(undefined)} onSave={async body=>{await request('/organizations/'+organizationId+'/members/'+editing.user.id,{method:'PATCH',body:JSON.stringify(body)});reload()}}/>}</DataPage>}
-function Audit(){return <DataPage title="Auditoría" description="Trazabilidad de acciones sensibles." path="/audit" columns={[['FECHA',x=>new Date(x.createdAt).toLocaleString()],['ACCIÓN',x=>x.action],['ENTIDAD',x=>x.entityType],['ID',x=>x.entityId||'—']]}/>}
-function Admin({user}:{user:User}){return user.isSuperAdmin?<><DataPage title="Agencias" description="Administración global multi-tenant." path="/organizations" columns={[['AGENCIA',x=>x.name],['SLUG',x=>x.slug],['ESTADO',x=>x.status],['MIEMBROS',x=>x._count?.members||0]]} create={{title:'Crear agencia',fields:[{name:'name',label:'Nombre'},{name:'slug',label:'Slug'},{name:'ownerEmail',label:'Correo del propietario',type:'email'},{name:'ownerName',label:'Nombre del propietario'},{name:'ownerPassword',label:'Contraseña temporal del propietario',type:'password'}]}}/><DataPage title="Proveedores de IA" description="Credenciales cifradas y modelos disponibles globalmente." path="/admin/llm-providers" columns={[['NOMBRE',x=>x.name],['PROVEEDOR',x=>x.provider],['MODELO',x=>x.model],['ESTADO',x=>x.enabled?'Activo':'Inactivo']]} create={{title:'Conectar proveedor de IA',fields:[{name:'name',label:'Nombre'},{name:'provider',label:'Proveedor'},{name:'model',label:'Modelo'},{name:'baseUrl',label:'URL compatible',required:false},{name:'apiKey',label:'API key',type:'password'}]}}/></>:<section className="content"><Empty text="Este módulo está reservado al superadministrador."/></section>}
-export default function Home(){
-  const [user,setUser]=useState<User>();
-  const [checking,setChecking]=useState(true);
-  const [page,setPage]=useState<Page>('Resumen');
-  const [organizations,setOrganizations]=useState<Organization[]>([]);
-  const [organizationId,setOrganizationId]=useState('');
-  useEffect(()=>{
-    if(!localStorage.getItem('crm_token')){setChecking(false);return}
-    request('/auth/me').then((current:User)=>{setUser(current);if(current.organizationId){localStorage.setItem('crm_org',current.organizationId);setOrganizationId(current.organizationId)}}).catch(()=>{localStorage.removeItem('crm_token');localStorage.removeItem('crm_org')}).finally(()=>setChecking(false))
-  },[]);
-  useEffect(()=>{
-    if(!user?.isSuperAdmin)return;
-    request('/organizations').then((items:Organization[])=>{
-      setOrganizations(items);
-      const stored=localStorage.getItem('crm_org');
-      const selected=items.some(item=>item.id===stored)?stored||'':items[0]?.id||'';
-      if(selected)localStorage.setItem('crm_org',selected);else localStorage.removeItem('crm_org');
-      setOrganizationId(selected);
-    }).catch(()=>setOrganizations([]));
-  },[user]);
-  const selectOrganization=(id:string)=>{if(id)localStorage.setItem('crm_org',id);else localStorage.removeItem('crm_org');setOrganizationId(id)};
-  const completeLogin=(current:User)=>{setUser(current);if(current.organizationId){localStorage.setItem('crm_org',current.organizationId);setOrganizationId(current.organizationId)}else if(current.isSuperAdmin)setPage('Administración')};
-  if(checking)return <div className="loading-screen">Cargando…</div>;
-  if(!user)return <Login onLogin={completeLogin}/>;
-  const tenantOrganizationId=organizationId||user.organizationId;
-  const views:Record<Page,React.ReactNode>={'Resumen':<Dashboard/>,'Conversaciones':<Conversations/>,'Leads':<Leads/>,'Propiedades':<Properties/>,'Agentes IA':<Agents organizationId={tenantOrganizationId}/>,'WhatsApp':<WhatsApp/>,'Equipo':<Team organizationId={tenantOrganizationId}/>,'Auditoría':<Audit/>,'Administración':<Admin user={user}/>};
-  return <div className="crm-shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">H</span><span><b>Horizonte</b><small>CRM inmobiliario</small></span></div><div className="nav-section">OPERACIÓN</div>{pages.filter(x=>user.isSuperAdmin||x!=='Administración').map(x=><button key={x} className={'nav-link '+(page===x?'selected':'')} onClick={()=>setPage(x)}><i>○</i><span>{x}</span></button>)}<div className="sidebar-user"><b>{user.name}</b><small>{user.isSuperAdmin?'Superadministrador':user.role}</small><button onClick={()=>{localStorage.removeItem('crm_token');localStorage.removeItem('crm_org');location.reload()}}>Cerrar sesión</button></div></aside><main className="main"><header className="topbar"><span className="breadcrumb">Workspace / <b>{page}</b></span><div className="topbar-account">{user.isSuperAdmin&&<label className="organization-picker"><span>Agencia</span><select aria-label="Agencia activa" value={organizationId} onChange={e=>selectOrganization(e.target.value)}><option value="">Selecciona una agencia</option>{organizations.map(org=><option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}<span>{user.email}</span></div></header><div key={tenantOrganizationId||'global'}>{views[page]}</div></main></div>
+import { useEffect, useState } from 'react';
+import './globals.css';
+import { Avatar, Button, Icon, ToastProvider } from './components/ui';
+import { request, signOut } from './lib/api';
+import { initials, label } from './lib/format';
+import { Agents, WhatsApp } from './screens/agents';
+import { AiProviders, Audit, Organizations, Team, Usage } from './screens/admin';
+import { Appointments } from './screens/appointments';
+import { Brand, Login, type User } from './screens/auth';
+import { Conversations } from './screens/conversations';
+import { Dashboard } from './screens/dashboard';
+import { Leads } from './screens/leads';
+import { Properties } from './screens/properties';
+
+type Nav = { key: string; label: string; icon: string; group: string; superAdmin?: boolean };
+
+const NAV: Nav[] = [
+  { key: 'resumen', label: 'Resumen', icon: 'home', group: 'Operación' },
+  { key: 'conversaciones', label: 'Conversaciones', icon: 'chat', group: 'Operación' },
+  { key: 'prospectos', label: 'Prospectos', icon: 'users', group: 'Operación' },
+  { key: 'visitas', label: 'Visitas', icon: 'calendar', group: 'Operación' },
+
+  { key: 'propiedades', label: 'Propiedades', icon: 'building', group: 'Inventario' },
+
+  { key: 'agentes', label: 'Agentes de IA', icon: 'bot', group: 'Configuración' },
+  { key: 'whatsapp', label: 'WhatsApp', icon: 'phone', group: 'Configuración' },
+  { key: 'equipo', label: 'Equipo', icon: 'settings', group: 'Configuración' },
+  { key: 'auditoria', label: 'Auditoría', icon: 'shield', group: 'Configuración' },
+
+  { key: 'agencias', label: 'Agencias', icon: 'building', group: 'Superadministración', superAdmin: true },
+  { key: 'proveedores', label: 'Proveedores de IA', icon: 'sparkle', group: 'Superadministración', superAdmin: true },
+  { key: 'consumo', label: 'Consumo', icon: 'list', group: 'Superadministración', superAdmin: true },
+];
+
+export default function Home() {
+  const [user, setUser] = useState<User>();
+  const [checking, setChecking] = useState(true);
+  const [page, setPage] = useState('resumen');
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [organizationId, setOrganizationId] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem('crm_token')) { setChecking(false); return; }
+    request<User>('/auth/me')
+      .then((current) => {
+        setUser(current);
+        if (current.organizationId) {
+          localStorage.setItem('crm_org', current.organizationId);
+          setOrganizationId(current.organizationId);
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('crm_token');
+        localStorage.removeItem('crm_org');
+      })
+      .finally(() => setChecking(false));
+  }, []);
+
+  // Un superadministrador no pertenece a una agencia: elige cuál opera, y esa
+  // elección viaja en cada petición como `x-organization-id`.
+  useEffect(() => {
+    if (!user?.isSuperAdmin) return;
+    request<any[]>('/organizations')
+      .then((items) => {
+        setOrganizations(items);
+        const stored = localStorage.getItem('crm_org');
+        const selected = items.some((item) => item.id === stored) ? stored! : items[0]?.id || '';
+        if (selected) localStorage.setItem('crm_org', selected);
+        else localStorage.removeItem('crm_org');
+        setOrganizationId(selected);
+      })
+      .catch(() => setOrganizations([]));
+  }, [user]);
+
+  function selectOrganization(id: string) {
+    if (id) localStorage.setItem('crm_org', id);
+    else localStorage.removeItem('crm_org');
+    setOrganizationId(id);
+  }
+
+  function completeLogin(current: User) {
+    setUser(current);
+    if (current.organizationId) {
+      localStorage.setItem('crm_org', current.organizationId);
+      setOrganizationId(current.organizationId);
+    } else if (current.isSuperAdmin) {
+      setPage('agencias');
+    }
+  }
+
+  if (checking) return <div className="loading-screen">Cargando…</div>;
+  if (!user) return <ToastProvider><Login onLogin={completeLogin} /></ToastProvider>;
+
+  const tenantId = organizationId || user.organizationId;
+  const visible = NAV.filter((item) => !item.superAdmin || user.isSuperAdmin);
+  const groups = [...new Set(visible.map((item) => item.group))];
+  const current = visible.find((item) => item.key === page) ?? visible[0];
+
+  const screens: Record<string, React.ReactNode> = {
+    resumen: <Dashboard onOpenSessions={() => setPage('whatsapp')} />,
+    conversaciones: <Conversations />,
+    prospectos: <Leads />,
+    visitas: <Appointments organizationId={tenantId} />,
+    propiedades: <Properties />,
+    agentes: <Agents organizationId={tenantId} />,
+    whatsapp: <WhatsApp />,
+    equipo: <Team organizationId={tenantId} />,
+    auditoria: <Audit />,
+    agencias: <Organizations />,
+    proveedores: <AiProviders />,
+    consumo: <Usage />,
+  };
+
+  return (
+    <ToastProvider>
+      <div className="shell">
+        <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
+          <Brand />
+          <nav className="nav">
+            {groups.map((group) => (
+              <div key={group}>
+                <div className="nav-label">{group}</div>
+                {visible.filter((item) => item.group === group).map((item) => (
+                  <button
+                    key={item.key}
+                    className={`nav-link ${page === item.key ? 'selected' : ''}`}
+                    onClick={() => { setPage(item.key); setMenuOpen(false); }}
+                    aria-current={page === item.key ? 'page' : undefined}
+                  >
+                    <Icon name={item.icon} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+          <div className="sidebar-user">
+            <Avatar small text={initials(user.name)} />
+            <span className="who">
+              <b>{user.name}</b>
+              <small>{user.isSuperAdmin ? 'Superadministrador' : label(user.role)}</small>
+            </span>
+            <Button size="sm" icon="logout" title="Cerrar sesión" onClick={signOut} />
+          </div>
+        </aside>
+
+        <div className="main">
+          <header className="topbar">
+            <button className="btn btn-ghost btn-icon menu-btn" onClick={() => setMenuOpen((open) => !open)} aria-label="Menú">
+              <Icon name="menu" />
+            </button>
+            <span className="breadcrumb">{current.group} / <b>{current.label}</b></span>
+            <div className="topbar-right">
+              {user.isSuperAdmin && organizations.length > 0 && (
+                <select
+                  className="select" style={{ width: 'auto', minWidth: 170 }}
+                  aria-label="Agencia activa"
+                  value={organizationId}
+                  onChange={(event) => selectOrganization(event.target.value)}
+                >
+                  <option value="">Sin agencia</option>
+                  {organizations.map((organization) => (
+                    <option key={organization.id} value={organization.id}>{organization.name}</option>
+                  ))}
+                </select>
+              )}
+              <span className="muted" style={{ fontSize: 13 }}>{user.email}</span>
+            </div>
+          </header>
+
+          {/* La clave fuerza el remontaje al cambiar de agencia, para que ninguna
+              pantalla conserve datos del tenant anterior. */}
+          <div key={`${tenantId || 'global'}-${page}`}>{screens[page]}</div>
+        </div>
+      </div>
+    </ToastProvider>
+  );
 }
