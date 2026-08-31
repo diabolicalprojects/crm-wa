@@ -51,8 +51,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     problems.push('JWT_SECRET debe tener al menos 32 caracteres en producción');
   }
 
-  const openwaBaseUrl = required('OPENWA_BASE_URL', env.OPENWA_BASE_URL, problems);
-  const openwaApiKey = required('OPENWA_API_KEY', env.OPENWA_API_KEY, problems);
+  // Estas dos solo afectan a WhatsApp y ya fallan de forma ruidosa al usarlas
+  // (`OpenWaGateway` lanza 503). No tumban el resto del CRM —propiedades,
+  // leads, equipo— por una credencial pendiente de capturar.
+  const openwaBaseUrl = env.OPENWA_BASE_URL?.trim() ?? '';
+  const openwaApiKey = env.OPENWA_API_KEY?.trim() ?? '';
+  if (!openwaBaseUrl || !openwaApiKey) {
+    log.warn('OPENWA_BASE_URL u OPENWA_API_KEY sin configurar: WhatsApp quedará inactivo');
+  }
 
   const webhookSecret = env.OPENWA_WEBHOOK_SECRET?.trim();
   if (!webhookSecret) {
