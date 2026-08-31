@@ -5,7 +5,7 @@ import { Avatar, Button, Icon, ToastProvider } from './components/ui';
 import { request, signOut } from './lib/api';
 import { initials, label } from './lib/format';
 import { Agents, WhatsApp } from './screens/agents';
-import { AiProviders, Audit, Organizations, Team, Usage } from './screens/admin';
+import { AiProviders, Audit, Organizations, SystemHealth, Team, Usage } from './screens/admin';
 import { Appointments } from './screens/appointments';
 import { Brand, Login, type User } from './screens/auth';
 import { Conversations } from './screens/conversations';
@@ -31,6 +31,7 @@ const NAV: Nav[] = [
   { key: 'agencias', label: 'Agencias', icon: 'building', group: 'Superadministración', superAdmin: true },
   { key: 'proveedores', label: 'Proveedores de IA', icon: 'sparkle', group: 'Superadministración', superAdmin: true },
   { key: 'consumo', label: 'Consumo', icon: 'list', group: 'Superadministración', superAdmin: true },
+  { key: 'salud', label: 'Salud del sistema', icon: 'shield', group: 'Superadministración', superAdmin: true },
 ];
 
 export default function Home() {
@@ -111,6 +112,7 @@ export default function Home() {
     agencias: <Organizations />,
     proveedores: <AiProviders />,
     consumo: <Usage />,
+    salud: <SystemHealth />,
   };
 
   return (

@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
-  Avatar, Badge, Banner, Button, Confirm, DataTable, Empty, FormModal, Modal, PageHeader, useToast,
+  Avatar, Badge, Banner, Button, Confirm, DataTable, Empty, FormModal, PageHeader, Skeleton, useToast,
   type Column,
 } from '../components/ui';
 import { request, requestList } from '../lib/api';
@@ -568,6 +568,168 @@ function ConnectProvider({ catalog, onClose, onDone }: {
         </div>
       </form>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------- salud del sistema */
+
+/**
+ * Existe porque diagnosticar una falla obligaba a consultar la base a mano.
+ * Responde de un vistazo: ¿están llegando los mensajes?, ¿la IA está fallando
+ * y por qué?, ¿algún canal se cayó? (spec §14.1.1 y §19.2).
+ */
+export function SystemHealth() {
+  const [health, setHealth] = useState<any>();
+  const [metrics, setMetrics] = useState<any>();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const [salud, datos] = await Promise.all([
+        request('/admin/system/health'),
+        request('/admin/system/metrics'),
+      ]);
+      setHealth(salud);
+      setMetrics(datos);
+      setError('');
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'Error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 30000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  const CHECKS: [string, string][] = [
+    ['database', 'Base de datos'],
+    ['redis', 'Redis · cola de IA'],
+    ['whatsapp', 'OpenWA'],
+  ];
+
+  const errorRate = metrics?.ia?.tasaDeError ?? 0;
+  const sinResponder = metrics?.sinResponder ?? 0;
+
+  return (
+    <section className="content">
+      <PageHeader
+        eyebrow="Superadministración"
+        title="Salud del sistema"
+        description="Comprobación profunda de dependencias y métricas de las últimas 24 horas."
+        actions={<Button icon="refresh" onClick={load}>Actualizar</Button>}
+      />
+
+      {error && <Banner>{error}</Banner>}
+
+      {loading ? <div className="card"><Skeleton rows={4} /></div> : (
+        <div className="stack">
+          <div className="metrics">
+            {CHECKS.map(([key, etiqueta]) => {
+              const check = health?.checks?.[key];
+              return (
+                <div className="metric" key={key}>
+                  <small>{etiqueta}</small>
+                  <strong style={{ fontSize: 17, color: check?.ok ? 'var(--success)' : 'var(--danger)' }}>
+                    {check?.ok ? 'Operativo' : 'Con fallas'}
+                  </strong>
+                  <div className="metric-foot">
+                    {check?.ok ? `${check.latencyMs} ms` : check?.error || 'sin respuesta'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {errorRate > 0.2 && (
+            <Banner kind="warning">
+              <b>{Math.round(errorRate * 100)}% de las ejecuciones de IA están fallando.</b>{' '}
+              {metrics?.ia?.ultimoError?.errorMessage || 'Revisa el proveedor configurado.'}
+            </Banner>
+          )}
+          {sinResponder > 0 && (
+            <Banner kind="warning">
+              <b>{sinResponder} {sinResponder === 1 ? 'conversación espera' : 'conversaciones esperan'} respuesta.</b>{' '}
+              El prospecto escribió y la IA todavía no contesta.
+            </Banner>
+          )}
+
+          <div className="metrics">
+            <div className="metric">
+              <small>Mensajes recibidos · 24 h</small>
+              <strong>{metrics?.mensajes?.INBOUND ?? 0}</strong>
+            </div>
+            <div className="metric">
+              <small>Mensajes enviados · 24 h</small>
+              <strong>{metrics?.mensajes?.OUTBOUND ?? 0}</strong>
+            </div>
+            <div className="metric">
+              <small>Ejecuciones de IA</small>
+              <strong>{metrics?.ia?.ejecuciones?.SUCCESS ?? 0}</strong>
+              <div className="metric-foot">{metrics?.ia?.ejecuciones?.FAILED ?? 0} fallidas</div>
+            </div>
+            <div className="metric">
+              <small>Latencia media de IA</small>
+              <strong>{((metrics?.ia?.latenciaMediaMs ?? 0) / 1000).toFixed(1)}s</strong>
+            </div>
+            <div className="metric">
+              <small>Tokens · 24 h</small>
+              <strong>{((metrics?.ia?.tokensEntrada ?? 0) + (metrics?.ia?.tokensSalida ?? 0)).toLocaleString('es-MX')}</strong>
+              <div className="metric-foot">{(metrics?.ia?.tokensEntrada ?? 0).toLocaleString('es-MX')} entrada</div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <div style={{ flex: 1 }}>
+                <h2>Canales y webhooks</h2>
+                <p>Estado de los números y entregas recibidas en las últimas 24 horas.</p>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="row row-wrap" style={{ gap: 8, marginBottom: 14 }}>
+                {Object.entries(metrics?.canales ?? {}).map(([estado, cuantos]) => (
+                  <Badge key={estado} value={estado}>{`${label(estado)}: ${cuantos}`}</Badge>
+                ))}
+                {!Object.keys(metrics?.canales ?? {}).length && (
+                  <span className="muted">Ningún canal registrado.</span>
+                )}
+              </div>
+              <div className="row row-wrap" style={{ gap: 8 }}>
+                {Object.entries(metrics?.webhooks ?? {}).map(([estado, cuantos]) => (
+                  <Badge key={estado} tone={estado === 'PROCESSED' ? 'success' : estado === 'FAILED' ? 'danger' : 'neutral'}>
+                    {`${estado}: ${cuantos}`}
+                  </Badge>
+                ))}
+                {!Object.keys(metrics?.webhooks ?? {}).length && (
+                  <span className="muted">Sin webhooks en las últimas 24 horas.</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {metrics?.ia?.ultimoError && (
+            <div className="card">
+              <div className="card-head">
+                <div style={{ flex: 1 }}>
+                  <h2>Último error de IA</h2>
+                  <p>{dateTime(metrics.ia.ultimoError.createdAt)} · {metrics.ia.ultimoError.model}</p>
+                </div>
+              </div>
+              <div className="card-body">
+                <p className="mono" style={{ fontSize: 12.5, color: 'var(--danger)', wordBreak: 'break-word' }}>
+                  {metrics.ia.ultimoError.errorMessage}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

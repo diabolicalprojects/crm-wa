@@ -23,6 +23,7 @@ import { OrganizationsController } from './organizations.controller';
 import { PrismaService } from './prisma.service';
 import { PropertiesController } from './properties.controller';
 import { SecretsService } from './secrets.service';
+import { SystemController } from './system.controller';
 import { WhatsappController } from './whatsapp.controller';
 
 @Module({
@@ -33,6 +34,7 @@ import { WhatsappController } from './whatsapp.controller';
     DashboardController,
     AuditController,
     EventsController,
+    SystemController,
     ImportsController,
     AiController,
     AppointmentsController,
