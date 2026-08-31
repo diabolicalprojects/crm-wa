@@ -31,14 +31,16 @@ const COLUMNS: Record<string, string[]> = {
   currency: ['currency', 'moneda'],
   country: ['country', 'pais', 'país'],
   state: ['state', 'estado'],
-  city: ['city', 'ciudad'],
+  // `location` y `aream2` son los nombres del esquema anterior. Se aceptan
+  // para que un archivo exportado antes del cambio no se importe a medias.
+  city: ['city', 'ciudad', 'location', 'ubicacion', 'ubicación'],
   neighborhood: ['neighborhood', 'colonia', 'barrio'],
   addressDisplay: ['address', 'addressdisplay', 'direccion', 'dirección'],
   bedrooms: ['bedrooms', 'recamaras', 'recámaras', 'habitaciones', 'dormitorios'],
   bathrooms: ['bathrooms', 'banos', 'baños'],
   parkingSpaces: ['parkingspaces', 'estacionamientos', 'cocheras'],
-  constructionM2: ['constructionm2', 'construccion', 'construcción', 'm2construccion'],
-  landM2: ['landm2', 'terreno', 'm2terreno'],
+  constructionM2: ['constructionm2', 'construccion', 'construcción', 'm2construccion', 'aream2', 'areaconstruida'],
+  landM2: ['landm2', 'terreno', 'm2terreno', 'superficie'],
   amenities: ['amenities', 'amenidades', 'caracteristicas', 'características'],
   publicUrl: ['publicurl', 'url', 'enlace', 'liga'],
 };
