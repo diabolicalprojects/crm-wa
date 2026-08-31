@@ -53,6 +53,8 @@ export interface AiCredentials {
 
 export interface AiAdapter {
   generate(credentials: AiCredentials, input: AiGenerateInput): Promise<AiResult>;
+  /** Modelos que esa credencial puede usar realmente. */
+  listModels(credentials: AiCredentials): Promise<string[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +109,15 @@ export class AnthropicAdapter implements AiAdapter {
       completionTokens: response.usage.output_tokens,
       stopReason: response.stop_reason ?? undefined,
     };
+  }
+
+  async listModels(credentials: AiCredentials): Promise<string[]> {
+    const client = new Anthropic({
+      apiKey: credentials.apiKey,
+      ...(credentials.baseUrl ? { baseURL: credentials.baseUrl } : {}),
+    });
+    const page = await client.models.list({ limit: 50 });
+    return page.data.map((model) => model.id);
   }
 
   private toMessages(messages: AiMessage[]): Anthropic.MessageParam[] {
@@ -201,6 +212,19 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
     };
   }
 
+  async listModels(credentials: AiCredentials): Promise<string[]> {
+    const base = (credentials.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+    const response = await fetch(`${base}/models`, {
+      headers: { Authorization: `Bearer ${credentials.apiKey}` },
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`Proveedor respondió ${response.status}: ${detail.slice(0, 200)}`);
+    }
+    const json: any = await response.json();
+    return (json.data ?? []).map((model: any) => String(model.id)).filter(Boolean);
+  }
+
   /** Los argumentos llegan como cadena JSON; nunca compararla como texto. */
   private parseArguments(value: unknown): Record<string, unknown> {
     if (typeof value !== 'string') return (value as Record<string, unknown>) ?? {};
@@ -250,6 +274,22 @@ export class AiGateway {
 
   generate(credentials: AiCredentials, input: AiGenerateInput): Promise<AiResult> {
     return this.adapterFor(credentials.kind).generate(credentials, input);
+  }
+
+  /**
+   * Consulta al proveedor qué modelos admite esa credencial. Es lo que evita
+   * que una lista escrita a mano quede obsoleta: los catálogos de modelos
+   * cambian varias veces al año.
+   */
+  async listModels(credentials: AiCredentials): Promise<{ ok: boolean; models: string[]; error?: string }> {
+    try {
+      const models = await this.adapterFor(credentials.kind).listModels(credentials);
+      return { ok: true, models };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      this.log.warn(`No fue posible listar modelos: ${message}`);
+      return { ok: false, models: [], error: message };
+    }
   }
 
   /**

@@ -399,6 +399,10 @@ function ConnectProvider({ catalog, onClose, onDone }: {
   const [custom, setCustom] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [live, setLive] = useState<string[]>([]);
+  const [discovering, setDiscovering] = useState(false);
 
   const entry = catalog.find((item) => item.kind === kind);
   const needsBaseUrl = kind === 'OPENAI_COMPATIBLE';
@@ -407,7 +411,34 @@ function ConnectProvider({ catalog, onClose, onDone }: {
     const recommended = entry?.models.find((item) => item.recommended) ?? entry?.models[0];
     setModel(recommended?.id ?? '');
     setCustom(!entry?.models.length);
+    setBaseUrl(entry?.defaultBaseUrl ?? '');
+    setLive([]);
   }, [kind, entry]);
+
+  /** Los catálogos escritos a mano envejecen; este pregunta al proveedor. */
+  async function discover() {
+    if (!apiKey) { setError('Captura primero la API key para consultar sus modelos'); return; }
+    setDiscovering(true);
+    setError('');
+    try {
+      const result = await request('/admin/ai/providers/discover-models', {
+        method: 'POST',
+        body: JSON.stringify({ kind, apiKey, baseUrl: baseUrl || undefined }),
+      });
+      if (!result.ok) { setError(`No fue posible consultar los modelos: ${result.error}`); return; }
+      setLive(result.models);
+      setCustom(false);
+      if (result.models.length && !result.models.includes(model)) setModel(result.models[0]);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'No fue posible consultar');
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  const options = live.length
+    ? live.map((id) => ({ id, label: id, context: undefined, recommended: false }))
+    : entry?.models ?? [];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -420,9 +451,9 @@ function ConnectProvider({ catalog, onClose, onDone }: {
         body: JSON.stringify({
           name: form.name,
           kind,
-          apiKey: form.apiKey,
+          apiKey,
           model: (custom ? form.customModel : model) || undefined,
-          baseUrl: form.baseUrl || undefined,
+          baseUrl: baseUrl || undefined,
         }),
       });
       onDone();
@@ -458,44 +489,11 @@ function ConnectProvider({ catalog, onClose, onDone }: {
             <input className="input" name="name" required defaultValue={entry?.label} placeholder="Claude producción" />
           </label>
 
-          {entry && entry.models.length > 0 && !custom && (
-            <label className="field">
-              <span>Modelo</span>
-              <select className="select" value={model} onChange={(event) => setModel(event.target.value)}>
-                {entry.models.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label} · {item.context} de contexto{item.recommended ? ' · recomendado' : ''}
-                  </option>
-                ))}
-              </select>
-              <span className="hint">
-                <button type="button" className="link-btn" style={{ display: 'inline', width: 'auto', padding: 0 }}
-                  onClick={() => setCustom(true)}>
-                  Usar otro identificador
-                </button>
-              </span>
-            </label>
-          )}
-
-          {(custom || !entry?.models.length) && (
-            <label className="field">
-              <span>Identificador del modelo</span>
-              <input className="input" name="customModel" required placeholder="claude-opus-5" />
-              <span className="hint">
-                Acepta cualquier identificador, así que un modelo nuevo no requiere actualizar el CRM.
-                {entry && entry.models.length > 0 && (
-                  <> · <button type="button" className="link-btn" style={{ display: 'inline', width: 'auto', padding: 0 }}
-                    onClick={() => setCustom(false)}>Volver a la lista</button></>
-                )}
-              </span>
-            </label>
-          )}
-
           <label className="field">
             <span>URL base{needsBaseUrl ? '' : ' · opcional'}</span>
             <input
-              className="input" name="baseUrl" required={needsBaseUrl}
-              defaultValue={entry?.defaultBaseUrl ?? ''}
+              className="input" required={needsBaseUrl}
+              value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)}
               placeholder="https://api.openai.com/v1"
             />
             <span className="hint">
@@ -507,9 +505,59 @@ function ConnectProvider({ catalog, onClose, onDone }: {
 
           <label className="field">
             <span>{entry?.credentialLabel ?? 'API key'}</span>
-            <input className="input" name="apiKey" type="password" required autoComplete="off" placeholder="••••••••••••" />
+            <input
+              className="input" type="password" required autoComplete="off" placeholder="••••••••••••"
+              value={apiKey} onChange={(event) => setApiKey(event.target.value)}
+            />
             <span className="hint">Se cifra con AES-GCM y nunca vuelve al navegador.</span>
           </label>
+
+          {!custom && (
+            <label className="field">
+              <span>Modelo</span>
+              <div className="row" style={{ alignItems: 'stretch' }}>
+                <select
+                  className="select" style={{ flex: 1 }}
+                  value={model} onChange={(event) => setModel(event.target.value)}
+                >
+                  {options.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                      {item.context ? ` · ${item.context} de contexto` : ''}
+                      {item.recommended ? ' · recomendado' : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button type="button" onClick={discover} disabled={discovering}>
+                  {discovering ? 'Consultando…' : 'Consultar al proveedor'}
+                </Button>
+              </div>
+              <span className="hint">
+                {live.length
+                  ? `${live.length} modelos que tu credencial puede usar realmente.`
+                  : 'Lista de respaldo. Consulta al proveedor para ver los que tu credencial admite hoy.'}
+                {' · '}
+                <button type="button" className="link-btn" style={{ display: 'inline', width: 'auto', padding: 0 }}
+                  onClick={() => setCustom(true)}>
+                  Escribir otro identificador
+                </button>
+              </span>
+            </label>
+          )}
+
+          {custom && (
+            <label className="field">
+              <span>Identificador del modelo</span>
+              <input className="input" name="customModel" required placeholder="claude-opus-5" />
+              <span className="hint">
+                Acepta cualquier identificador, así que un modelo nuevo no requiere actualizar el CRM.
+                {options.length > 0 && (
+                  <> · <button type="button" className="link-btn" style={{ display: 'inline', width: 'auto', padding: 0 }}
+                    onClick={() => setCustom(false)}>Volver a la lista</button></>
+                )}
+              </span>
+            </label>
+          )}
         </div>
 
         <div className="modal-foot">

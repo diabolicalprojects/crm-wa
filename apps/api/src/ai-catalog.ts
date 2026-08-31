@@ -1,19 +1,22 @@
 import { AiProviderKind } from '@prisma/client';
 
 /**
- * Catálogo de proveedores y modelos que la consola de superadministración
- * ofrece como selectores.
+ * Catálogo de respaldo de proveedores y modelos.
  *
- * La lista es una comodidad, no una restricción: el campo `model` acepta
- * cualquier identificador, así que un modelo nuevo se puede usar sin tocar el
- * código. `defaultBaseUrl` es lo que el adaptador usa si no se captura otro.
+ * **No es la fuente de verdad.** La consola consulta al proveedor sus modelos
+ * reales (`POST /admin/ai/providers/discover-models`), porque los catálogos
+ * cambian varias veces al año y una lista escrita a mano envejece sin avisar.
+ * Esto es lo que se ofrece antes de capturar la credencial, y el campo de
+ * modelo siempre acepta cualquier identificador.
+ *
+ * Verificado el 31 de agosto de 2026 contra la documentación de cada proveedor.
  */
 
 export interface ModelOption {
   id: string;
   label: string;
-  /** Ventana de contexto aproximada, para mostrarla en la interfaz. */
-  context: string;
+  /** Ventana de contexto aproximada. Se omite cuando el proveedor no la publica. */
+  context?: string;
   recommended?: boolean;
 }
 
@@ -37,8 +40,8 @@ export const AI_PROVIDER_CATALOG: ProviderOption[] = [
     models: [
       { id: 'claude-opus-5', label: 'Claude Opus 5', context: '1M', recommended: true },
       { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', context: '1M' },
-      { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', context: '200K' },
       { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', context: '1M' },
+      { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', context: '200K' },
     ],
     notes:
       'Mejor manejo de herramientas para las seis funciones del CRM. Usa el SDK oficial de Anthropic.',
@@ -50,27 +53,28 @@ export const AI_PROVIDER_CATALOG: ProviderOption[] = [
     defaultBaseUrl: 'https://api.openai.com/v1',
     supportsTools: true,
     models: [
-      { id: 'gpt-4o', label: 'GPT-4o', context: '128K', recommended: true },
-      { id: 'gpt-4o-mini', label: 'GPT-4o mini', context: '128K' },
-      { id: 'gpt-4.1', label: 'GPT-4.1', context: '1M' },
-      { id: 'gpt-4.1-mini', label: 'GPT-4.1 mini', context: '1M' },
+      { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', context: '1M', recommended: true },
+      { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', context: '1M' },
+      { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', context: '1M' },
     ],
-    notes: 'Compatible con el formato estándar de chat completions.',
+    notes: 'Sol para razonamiento complejo, Terra equilibra costo y capacidad, Luna para alto volumen.',
   },
   {
     kind: 'GEMINI',
     label: 'Google Gemini',
     credentialLabel: 'API key de Google AI Studio',
     // Gemini expone un endpoint compatible con OpenAI, así que reutiliza el
-    // mismo adaptador y no necesita uno propio.
+    // mismo adaptador y no necesita uno propio. La barra final se recorta al
+    // construir la ruta `/chat/completions`.
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     supportsTools: true,
     models: [
-      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', context: '1M', recommended: true },
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', context: '1M' },
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', context: '1M' },
+      { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', recommended: true },
+      { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+      { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite' },
+      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
     ],
-    notes: 'Suele ser la opción más económica por volumen.',
+    notes: 'Suele ser la opción más económica por volumen. Flash 3.7 rinde bien en flujos con herramientas.',
   },
   {
     kind: 'OPENAI_COMPATIBLE',

@@ -38,6 +38,12 @@ class CreateProviderDto {
   @IsOptional() @IsString() model?: string;
 }
 
+class DiscoverModelsDto {
+  @IsEnum(AiProviderKind) kind!: AiProviderKind;
+  @IsString() @Length(8, 400) apiKey!: string;
+  @IsOptional() @IsUrl({ require_tld: false }) baseUrl?: string;
+}
+
 class UpdateProviderDto {
   @IsOptional() @IsString() @Length(2, 80) name?: string;
   @IsOptional() @IsString() @Length(8, 400) apiKey?: string;
@@ -141,6 +147,30 @@ export class AiController {
       include: { _count: { select: { modelConfigs: true } } },
     });
     return this.mask(provider);
+  }
+
+  /**
+   * Pregunta al proveedor qué modelos admite esa credencial, antes de guardarla.
+   * Evita que la consola dependa de una lista escrita a mano que envejece.
+   */
+  @Post('providers/discover-models')
+  discoverModels(@Body() dto: DiscoverModelsDto) {
+    const baseUrl = dto.baseUrl ?? defaultBaseUrlFor(dto.kind);
+    if (dto.kind === 'OPENAI_COMPATIBLE' && !baseUrl) {
+      throw new BadRequestException('Un proveedor compatible requiere la URL base');
+    }
+    return this.gateway.listModels({ kind: dto.kind, apiKey: dto.apiKey, baseUrl });
+  }
+
+  @Get('providers/:id/models/available')
+  async availableModels(@Param('id') id: string) {
+    const provider = await this.db.aiProvider.findUnique({ where: { id } });
+    if (!provider) throw new NotFoundException('Proveedor no encontrado');
+    return this.gateway.listModels({
+      kind: provider.kind,
+      apiKey: this.secrets.decrypt(provider.encryptedApiKey),
+      baseUrl: provider.baseUrl ?? undefined,
+    });
   }
 
   @Post('providers/:id/test')
