@@ -77,8 +77,28 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
    * conversación muda para siempre. El historial de fallos vive en `AiRun`,
    * que además guarda el error y los tokens.
    */
-  enqueue(conversationId: string) {
-    return this.queue?.add(
+  async enqueue(conversationId: string) {
+    if (!this.queue) return undefined;
+
+    // Un trabajo que ya terminó —bien o mal— conserva su `jobId` hasta que se
+    // elimina, y mientras tanto BullMQ descarta en silencio cualquier alta con
+    // ese mismo id. Retirarlo aquí repara además las conversaciones que
+    // quedaron atascadas por una falla anterior, sin tocar Redis a mano.
+    try {
+      const previous = await this.queue.getJob(conversationId);
+      if (previous) {
+        const state = await previous.getState();
+        if (state === 'completed' || state === 'failed') await previous.remove();
+      }
+    } catch (error) {
+      this.log.warn(
+        `No se pudo revisar el trabajo previo de ${conversationId}: ${
+          error instanceof Error ? error.message : 'error'
+        }`,
+      );
+    }
+
+    return this.queue.add(
       'reply',
       { conversationId },
       {
