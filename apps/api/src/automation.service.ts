@@ -70,6 +70,12 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
    * el trabajo sigue pendiente, que es justo la partición por conversación que
    * pide la spec. Antes se usaba `conversationId + Date.now()`, lo que creaba un
    * trabajo por mensaje y producía respuestas encimadas.
+   *
+   * `removeOnFail` debe ser `true` por la misma razón: un trabajo fallido que
+   * se conserva mantiene ocupado su `jobId`, y entonces BullMQ descarta en
+   * silencio toda alta posterior. Una sola falla del proveedor dejaba la
+   * conversación muda para siempre. El historial de fallos vive en `AiRun`,
+   * que además guarda el error y los tokens.
    */
   enqueue(conversationId: string) {
     return this.queue?.add(
@@ -81,7 +87,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
         attempts: 3,
         backoff: { type: 'exponential', delay: 2000 },
         removeOnComplete: true,
-        removeOnFail: 50,
+        removeOnFail: true,
       },
     );
   }

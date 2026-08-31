@@ -21,6 +21,16 @@ export interface AiToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
+  /**
+   * Metadatos del proveedor que deben regresar intactos en el siguiente turno.
+   *
+   * Gemini 3 adjunta a cada llamada de herramienta una `thought_signature`: una
+   * instantánea cifrada de su razonamiento. Si no vuelve tal cual al continuar
+   * la conversación, responde 400 y el ciclo de herramientas se rompe en la
+   * segunda vuelta. La capa de compatibilidad con OpenAI no la conserva por sí
+   * sola, así que se transporta aquí sin interpretarla.
+   */
+  providerMetadata?: Record<string, unknown>;
 }
 
 export type AiMessage =
@@ -205,6 +215,8 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
         id: String(call.id),
         name: String(call.function?.name),
         input: this.parseArguments(call.function?.arguments),
+        // Gemini viaja aquí su `thought_signature`; se guarda opaca.
+        ...(call.extra_content ? { providerMetadata: { extra_content: call.extra_content } } : {}),
       })),
       promptTokens: json.usage?.prompt_tokens,
       completionTokens: json.usage?.completion_tokens,
@@ -248,6 +260,11 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
                   id: call.id,
                   type: 'function',
                   function: { name: call.name, arguments: JSON.stringify(call.input) },
+                  // Devolver la firma es obligatorio en Gemini 3: sin ella
+                  // rechaza el turno con 400 y el ciclo nunca avanza.
+                  ...(call.providerMetadata?.extra_content
+                    ? { extra_content: call.providerMetadata.extra_content }
+                    : {}),
                 })),
               }
             : {}),
