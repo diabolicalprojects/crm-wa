@@ -1,21 +1,56 @@
 import { Module } from '@nestjs/common';
-import { HealthController } from './health.controller';
+import { APP_GUARD } from '@nestjs/core';
+
 import { AgentsController } from './agents.controller';
+import { AiController } from './ai.controller';
+import { AiGateway } from './ai-gateway';
+import { AiToolsService } from './ai-tools.service';
+import { AppointmentsController } from './appointments.controller';
+import { AuditController } from './audit.controller';
+import { AuthController, AuthService, JwtGuard, RolesGuard } from './auth';
+import { AutomationService } from './automation.service';
+import { ConversationsController } from './conversations.controller';
+import { DashboardController } from './dashboard.controller';
+import { HealthController } from './health.controller';
+import { ImportsController } from './imports.controller';
+import { LeadsController } from './leads.controller';
 import { OpenWaGateway } from './openwa.gateway';
-import { WhatsappController } from './whatsapp.controller';
+import { OpenWaIngestService } from './openwa-ingest.service';
+import { OpenWaWebhookController } from './openwa-webhook.controller';
+import { OrganizationsController } from './organizations.controller';
 import { PrismaService } from './prisma.service';
 import { PropertiesController } from './properties.controller';
-import { LeadsController } from './leads.controller';
-import { ConversationsController } from './conversations.controller';
-import { OpenWaWebhookController } from './openwa-webhook.controller';
-import { APP_GUARD } from '@nestjs/core';
-import { AuthController, AuthService, JwtGuard, RolesGuard } from './auth';
-import { OrganizationsController } from './organizations.controller';
-import { DashboardController } from './dashboard.controller';
-import { AuditController } from './audit.controller';
-import { ImportsController } from './imports.controller';
-import { AutomationService } from './automation.service';
-import { LlmController } from './llm.controller';
 import { SecretsService } from './secrets.service';
-import { VisitsController } from './visits.controller';
-@Module({controllers:[HealthController,AuthController,OrganizationsController,DashboardController,AuditController,ImportsController,LlmController,VisitsController,AgentsController,WhatsappController,PropertiesController,LeadsController,ConversationsController,OpenWaWebhookController],providers:[OpenWaGateway,PrismaService,AuthService,AutomationService,SecretsService,{provide:APP_GUARD,useClass:JwtGuard},{provide:APP_GUARD,useClass:RolesGuard}]}) export class AppModule {}
+import { WhatsappController } from './whatsapp.controller';
+
+@Module({
+  controllers: [
+    HealthController,
+    AuthController,
+    OrganizationsController,
+    DashboardController,
+    AuditController,
+    ImportsController,
+    AiController,
+    AppointmentsController,
+    AgentsController,
+    WhatsappController,
+    PropertiesController,
+    LeadsController,
+    ConversationsController,
+    OpenWaWebhookController,
+  ],
+  providers: [
+    PrismaService,
+    SecretsService,
+    AuthService,
+    OpenWaGateway,
+    OpenWaIngestService,
+    AiGateway,
+    AiToolsService,
+    AutomationService,
+    { provide: APP_GUARD, useClass: JwtGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
+})
+export class AppModule {}

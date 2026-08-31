@@ -1,41 +1,53 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
+// ---------------------------------------------------------------------------
+// Enumeraciones
+// ---------------------------------------------------------------------------
+
 enum IndustryType {
   REAL_ESTATE
   TRAVEL
 }
+
 enum OrganizationStatus {
   ACTIVE
   SUSPENDED
   ARCHIVED
 }
+
 enum UserStatus {
   INVITED
   ACTIVE
   DISABLED
 }
+
 enum Role {
   OWNER
   ADMIN
   SUPERVISOR
   ADVISOR
 }
+
 enum AgentStatus {
   DRAFT
   ACTIVE
   PAUSED
   ARCHIVED
 }
+
 enum OperationMode {
   AI
   HUMAN
   HYBRID
 }
+
 enum SessionStatus {
   CREATING
   QR_REQUIRED
@@ -47,231 +59,809 @@ enum SessionStatus {
   DELETING
   DELETED
 }
+
 enum ConversationMode {
   AI_ACTIVE
   AI_PAUSED
   HUMAN_ACTIVE
   DISABLED
 }
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  ARCHIVED
+}
+
 enum LeadStage {
   NEW
   CONTACTED
+  QUALIFYING
   QUALIFIED
   VISIT_SCHEDULED
   WON
   LOST
 }
+
 enum PropertyStatus {
+  DRAFT
   AVAILABLE
   RESERVED
   SOLD
   RENTED
   INACTIVE
 }
+
+enum OperationType {
+  SALE
+  RENT
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  LAND
+  COMMERCIAL
+  OFFICE
+  OTHER
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageSenderType {
+  LEAD
+  AI
+  HUMAN
+  SYSTEM
+}
+
+/// Refleja el catálogo real de OpenWA (ver `docs/openwa-contract.md`):
+/// text · image · video · audio · voice · document · sticker · location ·
+/// contact · poll · call · revoked · masked · unknown
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  VOICE
+  DOCUMENT
+  STICKER
+  LOCATION
+  CONTACT
+  POLL
+  CALL
+  REVOKED
+  MASKED
+  UNKNOWN
+}
+
+enum MessageStatus {
+  RECEIVED
+  QUEUED
+  GENERATING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  CANCELLED
+}
+
+enum MessageOrigin {
+  CRM
+  WHATSAPP
+  WHATSAPP_PHONE
+  SYSTEM
+}
+
+enum MediaSource {
+  WHATSAPP
+  UPLOAD
+  IMPORT
+}
+
+enum MediaStatus {
+  PENDING
+  STORED
+  FAILED
+  DELETED
+}
+
+enum AppointmentStatus {
+  REQUESTED
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  NOT_APPLICABLE
+}
+
+enum PropertySourceType {
+  MANUAL
+  CSV
+  EXCEL
+  API
+  XML
+  JSON
+  GOOGLE_SHEETS
+}
+
+enum PropertySourceStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+enum SyncRunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum AiProviderKind {
+  OPENAI
+  ANTHROPIC
+  GEMINI
+  OPENAI_COMPATIBLE
+}
+
+enum AiRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+  SKIPPED
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSED
+  DUPLICATE
+  REJECTED
+  FAILED
+}
+
+enum CalendarScope {
+  PERSONAL
+  SHARED
+}
+
+enum CalendarConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+// ---------------------------------------------------------------------------
+// Organización, usuarios y accesos
+// ---------------------------------------------------------------------------
+
 model Organization {
-  id String @id @default(uuid())
-  name String
-  slug String @unique
-  industryType IndustryType @default(REAL_ESTATE)
-  timezone String @default("America/Mexico_City")
-  defaultLanguage String @default("es-MX")
-  status OrganizationStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  members OrganizationMember[]
-  agents Agent[]
-  sessions WhatsappSession[]
-  leads Lead[]
-  properties Property[]
-  conversations Conversation[]
-  auditLogs AuditLog[]
-  invitations Invitation[]
-  visits Visit[]
+  id              String             @id @default(uuid())
+  name            String
+  slug            String             @unique
+  industryType    IndustryType       @default(REAL_ESTATE)
+  timezone        String             @default("America/Mexico_City")
+  defaultLanguage String             @default("es-MX")
+  status          OrganizationStatus @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  members         OrganizationMember[]
+  agents          Agent[]
+  sessions        WhatsappSession[]
+  leads           Lead[]
+  properties      Property[]
+  conversations   Conversation[]
+  messages        Message[]
+  auditLogs       AuditLog[]
+  invitations     Invitation[]
+  appointments    Appointment[]
+  mediaAssets     MediaAsset[]
+  propertySources PropertySource[]
+  assignments     AgentSessionAssignment[]
+  aiRuns          AiRun[]
+  webhookEvents   WebhookEvent[]
+  matches         LeadPropertyMatch[]
+  calendars       CalendarConnection[]
+  modelConfigs    AiModelConfig[]
 }
+
 model User {
-  id String @id @default(uuid())
-  email String @unique
-  name String
+  id           String     @id @default(uuid())
+  email        String     @unique
+  name         String
   passwordHash String?
-  status UserStatus @default(INVITED)
-  isSuperAdmin Boolean @default(false)
-  memberships OrganizationMember[]
-  responsibleAgents Agent[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  invitationsSent Invitation[] @relation("InvitationSender")
-  assignedVisits Visit[]
+  status       UserStatus @default(INVITED)
+  isSuperAdmin Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberships          OrganizationMember[]
+  responsibleAgents    Agent[]
+  invitationsSent      Invitation[]             @relation("InvitationSender")
+  assignedAppointments Appointment[]
+  assignedLeads        Lead[]                   @relation("LeadAssignee")
+  assignedConversations Conversation[]          @relation("ConversationAssignee")
+  sentMessages         Message[]                @relation("MessageSender")
+  sessionAssignments   AgentSessionAssignment[] @relation("AssignmentAuthor")
+  calendarConnections  CalendarConnection[]
 }
+
 model OrganizationMember {
-  id String @id @default(uuid())
+  id             String     @id @default(uuid())
   organizationId String
-  userId String
-  role Role
-  status UserStatus @default(ACTIVE)
+  userId         String
+  role           Role
+  status         UserStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([organizationId, userId])
-}
-model Agent {
-  id String @id @default(uuid())
-  organizationId String
-  responsibleUserId String
-  name String
-  description String?
-  status AgentStatus @default(DRAFT)
-  operationMode OperationMode @default(HYBRID)
-  language String @default("es-MX")
-  tone String?
-  greetingMessage String?
-  systemInstructions String?
-  aiEnabled Boolean @default(true)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  responsibleUser User @relation(fields: [responsibleUserId], references: [id])
-  session WhatsappSession? @relation("AgentSession")
-  conversations Conversation[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-model WhatsappSession {
-  id String @id @default(uuid())
-  organizationId String
-  providerSessionId String?
-  name String
-  phoneNumber String?
-  status SessionStatus @default(CREATING)
-  agentId String? @unique
-  agent Agent? @relation("AgentSession", fields: [agentId], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  conversations Conversation[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@unique([organizationId, providerSessionId])
-}
-model Lead {
-  id String @id @default(uuid())
-  organizationId String
-  phone String
-  name String?
-  email String?
-  stage LeadStage @default(NEW)
-  score Int @default(0)
-  preferences Json?
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  conversations Conversation[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@unique([organizationId, phone])
-}
-model Conversation {
-  id String @id @default(uuid())
-  organizationId String
-  leadId String
-  sessionId String
-  agentId String?
-  mode ConversationMode @default(AI_ACTIVE)
-  subject String?
-  assignedUserId String?
-  lastMessageAt DateTime?
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  session WhatsappSession @relation(fields: [sessionId], references: [id])
-  agent Agent? @relation(fields: [agentId], references: [id])
-  messages Message[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([organizationId, mode])
-}
-model Message {
-  id String @id @default(uuid())
-  conversationId String
-  providerMessageId String?
-  direction String
-  type String @default("text")
-  text String?
-  status String @default("QUEUED")
-  authorType String @default("SYSTEM")
-  origin String @default("CRM")
-  metadata Json?
-  createdAt DateTime @default(now())
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  @@unique([conversationId, providerMessageId])
-}
-model Property {
-  id String @id @default(uuid())
-  organizationId String
-  externalId String?
-  title String
-  operationType String
-  propertyType String
-  location String
-  price Decimal @db.Decimal(14, 2)
-  currency String @default("MXN")
-  bedrooms Int?
-  bathrooms Int?
-  areaM2 Int?
-  amenities String[]
-  status PropertyStatus @default(AVAILABLE)
-  description String?
-  url String?
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([organizationId, status, operationType])
-}
-model AuditLog {
-  id String @id @default(uuid())
-  organizationId String?
-  userId String?
-  action String
-  entityType String
-  entityId String?
-  metadata Json?
-  createdAt DateTime @default(now())
-  organization Organization? @relation(fields: [organizationId], references: [id])
-  @@index([organizationId, createdAt])
+  @@index([userId])
 }
 
 model Invitation {
-  id String @id @default(uuid())
+  id             String    @id @default(uuid())
   organizationId String
-  email String
-  role Role
-  tokenHash String @unique
-  invitedById String
-  expiresAt DateTime
-  acceptedAt DateTime?
-  createdAt DateTime @default(now())
+  email          String
+  role           Role
+  tokenHash      String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invitedBy User @relation("InvitationSender", fields: [invitedById], references: [id])
+  invitedBy    User         @relation("InvitationSender", fields: [invitedById], references: [id])
+
   @@index([organizationId, email])
 }
 
-model Visit {
-  id String @id @default(uuid())
-  organizationId String
-  propertyId String
-  leadId String
-  assignedUserId String
-  startsAt DateTime
-  endsAt DateTime
-  status String @default("SCHEDULED")
-  notes String?
-  googleEventId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedUser User @relation(fields: [assignedUserId], references: [id])
-  @@index([organizationId, startsAt])
+// ---------------------------------------------------------------------------
+// Agentes y sesiones de WhatsApp
+// ---------------------------------------------------------------------------
+
+model Agent {
+  id                 String        @id @default(uuid())
+  organizationId     String
+  responsibleUserId  String
+  name               String
+  description        String?
+  status             AgentStatus   @default(DRAFT)
+  operationMode      OperationMode @default(HYBRID)
+  language           String        @default("es-MX")
+  tone               String?
+  greetingMessage    String?
+  systemInstructions String?
+  aiEnabled          Boolean       @default(true)
+  modelConfigId      String?
+  businessHours      Json?
+  handoffRules       Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  responsibleUser User                     @relation(fields: [responsibleUserId], references: [id])
+  modelConfig     AiModelConfig?           @relation(fields: [modelConfigId], references: [id])
+  session         WhatsappSession?         @relation("AgentSession")
+  conversations   Conversation[]
+  assignments     AgentSessionAssignment[]
+  aiRuns          AiRun[]
+
+  @@index([organizationId, status])
+  @@index([responsibleUserId])
 }
 
-model LlmProvider {
-  id String @id @default(uuid())
-  name String
-  provider String
-  model String
-  encryptedApiKey String
-  baseUrl String?
-  enabled Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model WhatsappSession {
+  id                  String        @id @default(uuid())
+  organizationId      String
+  provider            String        @default("OPENWA")
+  providerSessionId   String?
+  name                String
+  phoneNumber         String?
+  waAccountId         String?
+  engineType          String?
+  status              SessionStatus @default(CREATING)
+  lastProviderStatus  String?
+  lastSeenAt          DateTime?
+  connectedAt         DateTime?
+  disconnectedAt      DateTime?
+  failureReason       String?
+  webhookConfiguredAt DateTime?
+  agentId             String?       @unique
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  agent         Agent?                   @relation("AgentSession", fields: [agentId], references: [id])
+  organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  messages      Message[]
+  assignments   AgentSessionAssignment[]
+  webhookEvents WebhookEvent[]
+
+  @@unique([organizationId, providerSessionId])
+  @@index([organizationId, status])
+}
+
+/// Historial de asignaciones agente ↔ sesión (spec §11.6).
+/// `unassignedAt = NULL` indica la asignación activa; los índices únicos
+/// parciales que impiden dos asignaciones activas se crean en la migración.
+model AgentSessionAssignment {
+  id                String    @id @default(uuid())
+  organizationId    String
+  agentId           String
+  whatsappSessionId String
+  assignedByUserId  String?
+  assignedAt        DateTime  @default(now())
+  unassignedAt      DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  session      WhatsappSession @relation(fields: [whatsappSessionId], references: [id], onDelete: Cascade)
+  assignedBy   User?           @relation("AssignmentAuthor", fields: [assignedByUserId], references: [id])
+
+  @@index([organizationId, agentId])
+  @@index([organizationId, whatsappSessionId])
+}
+
+// ---------------------------------------------------------------------------
+// Leads, conversaciones y mensajes
+// ---------------------------------------------------------------------------
+
+model Lead {
+  id             String    @id @default(uuid())
+  organizationId String
+  phone          String
+  whatsappChatId String?
+  name           String?
+  email          String?
+  source         String    @default("WHATSAPP")
+  stage          LeadStage @default(NEW)
+  score          Int       @default(0)
+  aiSummary      String?
+  preferences    Json?
+  lastContactAt  DateTime?
+  assignedUserId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser  User?               @relation("LeadAssignee", fields: [assignedUserId], references: [id])
+  conversations Conversation[]
+  appointments  Appointment[]
+  matches       LeadPropertyMatch[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId, stage])
+}
+
+model Conversation {
+  id               String             @id @default(uuid())
+  organizationId   String
+  leadId           String
+  sessionId        String
+  agentId          String?
+  mode             ConversationMode   @default(AI_ACTIVE)
+  status           ConversationStatus @default(OPEN)
+  subject          String?
+  assignedUserId   String?
+  handoffReason    String?
+  summary          String?
+  summaryUpdatedAt DateTime?
+  lastMessageAt    DateTime?
+  lastInboundAt    DateTime?
+  lastOutboundAt   DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead                @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  session      WhatsappSession     @relation(fields: [sessionId], references: [id])
+  agent        Agent?              @relation(fields: [agentId], references: [id])
+  assignedUser User?               @relation("ConversationAssignee", fields: [assignedUserId], references: [id])
+  messages     Message[]
+  aiRuns       AiRun[]
+  matches      LeadPropertyMatch[]
+
+  @@unique([organizationId, leadId, sessionId])
+  @@index([organizationId, mode])
+  @@index([organizationId, status, lastMessageAt])
+  @@index([assignedUserId])
+}
+
+model Message {
+  id                String            @id @default(uuid())
+  organizationId    String
+  conversationId    String
+  sessionId         String?
+  providerMessageId String?
+  direction         MessageDirection
+  senderType        MessageSenderType @default(SYSTEM)
+  senderUserId      String?
+  type              MessageType       @default(TEXT)
+  text              String?
+  mediaId           String?
+  replyToMessageId  String?
+  status            MessageStatus     @default(QUEUED)
+  origin            MessageOrigin     @default(CRM)
+  errorCode         String?
+  errorMessage      String?
+  providerTimestamp DateTime?
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  session      WhatsappSession?    @relation(fields: [sessionId], references: [id])
+  sender       User?               @relation("MessageSender", fields: [senderUserId], references: [id])
+  media        MediaAsset?         @relation(fields: [mediaId], references: [id])
+  replyTo      Message?            @relation("MessageReply", fields: [replyToMessageId], references: [id])
+  replies      Message[]           @relation("MessageReply")
+  aiRuns       AiRun[]             @relation("AiRunTrigger")
+  matches      LeadPropertyMatch[]
+
+  @@unique([sessionId, providerMessageId])
+  @@index([conversationId, createdAt])
+  @@index([organizationId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Inventario inmobiliario
+// ---------------------------------------------------------------------------
+
+model Property {
+  id                String         @id @default(uuid())
+  organizationId    String
+  propertySourceId  String?
+  externalReference String?
+  title             String
+  description       String?
+  operationType     OperationType
+  propertyType      PropertyType
+  status            PropertyStatus @default(AVAILABLE)
+  price             Decimal        @db.Decimal(14, 2)
+  currency          String         @default("MXN")
+  country           String         @default("México")
+  state             String?
+  city              String?
+  neighborhood      String?
+  addressDisplay    String?
+  latitude          Decimal?       @db.Decimal(10, 7)
+  longitude         Decimal?       @db.Decimal(10, 7)
+  bedrooms          Int?
+  bathrooms         Decimal?       @db.Decimal(4, 1)
+  parkingSpaces     Int?
+  constructionM2    Decimal?       @db.Decimal(10, 2)
+  landM2            Decimal?       @db.Decimal(10, 2)
+  amenities         String[]
+  publicUrl         String?
+  availableFrom     DateTime?      @db.Date
+  contentHash       String?
+  lastSeenAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertySource PropertySource?     @relation(fields: [propertySourceId], references: [id])
+  media          PropertyMedia[]
+  appointments   Appointment[]
+  matches        LeadPropertyMatch[]
+
+  @@unique([organizationId, propertySourceId, externalReference])
+  @@index([organizationId, status, operationType])
+  @@index([organizationId, city])
+  @@index([organizationId, price])
+}
+
+model PropertyMedia {
+  id           String   @id @default(uuid())
+  propertyId   String
+  mediaAssetId String
+  position     Int      @default(0)
+  title        String?
+  altText      String?
+  isCover      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, mediaAssetId])
+  @@index([propertyId, position])
+}
+
+model PropertySource {
+  id                 String               @id @default(uuid())
+  organizationId     String
+  name               String
+  type               PropertySourceType
+  url                String?
+  encryptedCredentials String?
+  mappingConfig      Json?
+  frequencyMinutes   Int?
+  deactivatePolicy   String               @default("MARK_INACTIVE")
+  cursor             String?
+  status             PropertySourceStatus @default(ACTIVE)
+  lastRunAt          DateTime?
+  nextRunAt          DateTime?
+  lastError          String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  properties   Property[]
+  runs         PropertySyncRun[]
+
+  @@index([organizationId, status])
+}
+
+model PropertySyncRun {
+  id               String        @id @default(uuid())
+  propertySourceId String
+  status           SyncRunStatus @default(RUNNING)
+  startedAt        DateTime      @default(now())
+  finishedAt       DateTime?
+  itemsRead        Int           @default(0)
+  itemsCreated     Int           @default(0)
+  itemsUpdated     Int           @default(0)
+  itemsSkipped     Int           @default(0)
+  itemsFailed      Int           @default(0)
+  errors           Json?
+  reportKey        String?
+
+  source PropertySource @relation(fields: [propertySourceId], references: [id], onDelete: Cascade)
+
+  @@index([propertySourceId, startedAt])
+}
+
+model LeadPropertyMatch {
+  id             String   @id @default(uuid())
+  organizationId String
+  leadId         String
+  propertyId     String
+  conversationId String?
+  messageId      String?
+  matchScore     Int      @default(0)
+  matchReasons   Json?
+  shownAt        DateTime @default(now())
+  leadFeedback   String?
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  property     Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, leadId, shownAt])
+  @@index([propertyId])
+}
+
+// ---------------------------------------------------------------------------
+// Archivos
+// ---------------------------------------------------------------------------
+
+model MediaAsset {
+  id               String      @id @default(uuid())
+  organizationId   String
+  storageKey       String
+  mimeType         String
+  sizeBytes        Int
+  sha256           String?
+  originalFilename String?
+  source           MediaSource @default(UPLOAD)
+  status           MediaStatus @default(PENDING)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  organization  Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages      Message[]
+  propertyMedia PropertyMedia[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, sha256])
+}
+
+// ---------------------------------------------------------------------------
+// Citas y calendarios
+// ---------------------------------------------------------------------------
+
+model Appointment {
+  id                    String            @id @default(uuid())
+  organizationId        String
+  leadId                String
+  propertyId            String?
+  assignedUserId        String
+  startsAt              DateTime
+  endsAt                DateTime
+  timezone              String            @default("America/Mexico_City")
+  status                AppointmentStatus @default(REQUESTED)
+  notes                 String?
+  source                String            @default("CRM")
+  personalEventId       String?
+  sharedEventId         String?
+  syncStatus            SyncStatus        @default(PENDING)
+  syncVersion           Int               @default(0)
+  lastSyncError         String?
+  lastSyncedAt          DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  property     Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  assignedUser User         @relation(fields: [assignedUserId], references: [id])
+
+  @@index([organizationId, startsAt])
+  @@index([organizationId, syncStatus])
+  @@index([assignedUserId, startsAt])
+}
+
+model CalendarConnection {
+  id                    String                   @id @default(uuid())
+  organizationId        String
+  userId                String?
+  scope                 CalendarScope            @default(PERSONAL)
+  provider              String                   @default("GOOGLE")
+  externalAccountEmail  String?
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  tokenExpiresAt        DateTime?
+  calendarId            String?
+  status                CalendarConnectionStatus @default(ACTIVE)
+  lastSyncedAt          DateTime?
+  lastError             String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, scope])
+  @@index([organizationId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Inteligencia artificial
+// ---------------------------------------------------------------------------
+
+/// Catálogo global de proveedores. Solo SUPER_ADMIN lo administra (spec §11.15.1).
+model AiProvider {
+  id                  String         @id @default(uuid())
+  name                String
+  kind                AiProviderKind
+  baseUrl             String?
+  encryptedApiKey     String
+  supportsTools       Boolean        @default(true)
+  supportsStreaming   Boolean        @default(true)
+  enabled             Boolean        @default(true)
+  metadata            Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  modelConfigs AiModelConfig[]
+  aiRuns       AiRun[]
+}
+
+/// Configuración versionada de modelo. `organizationId = NULL` la vuelve global
+/// y disponible como predeterminada para todas las agencias (spec §11.15).
+model AiModelConfig {
+  id                 String   @id @default(uuid())
+  aiProviderId       String
+  organizationId     String?
+  name               String
+  model              String
+  temperature        Float    @default(0.3)
+  maxTokens          Int      @default(1024)
+  promptVersion      String   @default("v1")
+  maxToolIterations  Int      @default(4)
+  monthlyTokenLimit  Int?
+  costPerMillionIn   Decimal? @db.Decimal(10, 4)
+  costPerMillionOut  Decimal? @db.Decimal(10, 4)
+  isDefault          Boolean  @default(false)
+  enabled            Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  provider     AiProvider    @relation(fields: [aiProviderId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agents       Agent[]
+  aiRuns       AiRun[]
+
+  @@index([organizationId, enabled])
+}
+
+model AiRun {
+  id                  String      @id @default(uuid())
+  organizationId      String
+  conversationId      String?
+  agentId             String?
+  triggerMessageId    String?
+  aiProviderId        String?
+  aiModelConfigId     String?
+  model               String?
+  status              AiRunStatus @default(RUNNING)
+  latencyMs           Int?
+  promptTokens        Int?
+  completionTokens    Int?
+  estimatedCost       Decimal?    @db.Decimal(12, 6)
+  toolsInvoked        Json?
+  instructionsVersion String?
+  errorCode           String?
+  errorMessage        String?
+  createdAt           DateTime    @default(now())
+  finishedAt          DateTime?
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation   Conversation?  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  agent          Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  triggerMessage Message?       @relation("AiRunTrigger", fields: [triggerMessageId], references: [id], onDelete: SetNull)
+  provider       AiProvider?    @relation(fields: [aiProviderId], references: [id], onDelete: SetNull)
+  modelConfig    AiModelConfig? @relation(fields: [aiModelConfigId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([organizationId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Integraciones y trazabilidad
+// ---------------------------------------------------------------------------
+
+model WebhookEvent {
+  id               String                  @id @default(uuid())
+  organizationId   String?
+  sessionId        String?
+  provider         String                  @default("OPENWA")
+  externalEventId  String
+  eventType        String
+  signatureValid   Boolean                 @default(false)
+  status           WebhookProcessingStatus @default(RECEIVED)
+  attempts         Int                     @default(0)
+  payload          Json?
+  errorMessage     String?
+  receivedAt       DateTime                @default(now())
+  processedAt      DateTime?
+
+  organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  session      WhatsappSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalEventId])
+  @@index([organizationId, receivedAt])
+  @@index([status, receivedAt])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
 }

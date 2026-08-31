@@ -1,86 +1,190 @@
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentsController } from './agents.controller';
+import { AppointmentsController } from './appointments.controller';
+import { AuthUser } from './auth';
 import { LeadsController } from './leads.controller';
 import { PropertiesController } from './properties.controller';
-import { VisitsController } from './visits.controller';
 
-describe('CRUD del CRM aislado por agencia',()=>{
-  let db:any;
-  beforeEach(()=>{
-    db={
-      property:{findMany:vi.fn().mockResolvedValue([]),create:vi.fn().mockResolvedValue({id:'p1'}),update:vi.fn().mockResolvedValue({id:'p1'})},
-      lead:{findMany:vi.fn().mockResolvedValue([]),create:vi.fn().mockResolvedValue({id:'l1'}),findFirst:vi.fn(),update:vi.fn()},
-      agent:{findMany:vi.fn().mockResolvedValue([]),create:vi.fn().mockResolvedValue({id:'a1'}),update:vi.fn()},
-      visit:{findMany:vi.fn().mockResolvedValue([]),create:vi.fn().mockResolvedValue({id:'v1'}),update:vi.fn()},
-      whatsappSession:{updateMany:vi.fn(),update:vi.fn()},
+const owner: AuthUser = {
+  id: 'u1',
+  email: 'owner@test.com',
+  name: 'Owner',
+  isSuperAdmin: false,
+  role: 'OWNER',
+  organizationId: 'org-1',
+};
+const advisor: AuthUser = { ...owner, id: 'u2', role: 'ADVISOR' };
+
+describe('CRUD del CRM aislado por agencia', () => {
+  let db: any;
+
+  beforeEach(() => {
+    db = {
+      property: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'p1' }),
+        update: vi.fn().mockResolvedValue({ id: 'p1' }),
+      },
+      lead: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn().mockResolvedValue({ id: 'l1' }),
+        create: vi.fn().mockResolvedValue({ id: 'l1' }),
+        update: vi.fn().mockResolvedValue({ id: 'l1' }),
+      },
+      agent: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'a1' }),
+        update: vi.fn().mockResolvedValue({ id: 'a1' }),
+      },
+      appointment: {
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({ id: 'v1' }),
+        update: vi.fn().mockResolvedValue({ id: 'v1' }),
+      },
+      whatsappSession: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        update: vi.fn().mockResolvedValue({ id: 's1' }),
+        updateMany: vi.fn(),
+      },
+      agentSessionAssignment: { create: vi.fn(), updateMany: vi.fn() },
+      auditLog: { create: vi.fn() },
     };
-    db.$transaction=vi.fn((callback:any)=>callback(db));
+    db.$transaction = vi.fn((callback: any) =>
+      Array.isArray(callback) ? Promise.all(callback) : callback(db),
+    );
   });
 
-  it('crea y lista propiedades con conversiones correctas',async()=>{
-    const controller=new PropertiesController(db);
-    await controller.list('org-1');
-    await controller.create('org-1',{title:'Casa',operationType:'VENTA',propertyType:'CASA',location:'Centro',price:'2500000',bedrooms:'3',amenities:['terraza']});
-    expect(db.property.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{organizationId:'org-1'}}));
-    expect(db.property.create).toHaveBeenCalledWith({data:expect.objectContaining({organizationId:'org-1',price:2500000,bedrooms:3,currency:'MXN',amenities:['terraza']})});
+  it('crea propiedades con enums y tipos convertidos', async () => {
+    const controller = new PropertiesController(db);
+    await controller.create('org-1', {
+      title: 'Casa en el centro',
+      operationType: 'SALE',
+      propertyType: 'HOUSE',
+      price: 2500000,
+      city: 'Aguascalientes',
+      bedrooms: 3,
+      amenities: ['terraza'],
+    } as any);
+    expect(db.property.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: 'org-1',
+        operationType: 'SALE',
+        propertyType: 'HOUSE',
+        price: 2500000,
+        amenities: ['terraza'],
+      }),
+    });
   });
 
-  it('actualiza y desactiva propiedades dentro del tenant',async()=>{
-    const controller=new PropertiesController(db);
-    await controller.update('org-1','p1',{title:'Casa editada'});
-    await controller.remove('org-1','p1');
-    expect(db.property.update).toHaveBeenNthCalledWith(1,{where:{id:'p1',organizationId:'org-1'},data:{title:'Casa editada'}});
-    expect(db.property.update).toHaveBeenNthCalledWith(2,{where:{id:'p1',organizationId:'org-1'},data:{status:'INACTIVE'}});
+  it('pagina propiedades por cursor y devuelve el siguiente', async () => {
+    const rows = Array.from({ length: 3 }, (_, index) => ({ id: `p${index}` }));
+    db.property.findMany.mockResolvedValue(rows);
+    const result = await new PropertiesController(db).list('org-1', { take: 2 } as any);
+    expect(result.items).toHaveLength(2);
+    expect(result.nextCursor).toBe('p1');
+    expect(db.property.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ organizationId: 'org-1' }), take: 3 }),
+    );
   });
 
-  it('crea, consulta y marca leads como perdidos',async()=>{
-    const controller=new LeadsController(db);
-    await controller.create('org-1',{phone:'5215550000000',name:'Lead'});
-    await controller.list('org-1');
-    await controller.remove('org-1','l1');
-    expect(db.lead.create).toHaveBeenCalledWith({data:{organizationId:'org-1',phone:'5215550000000',name:'Lead'}});
-    expect(db.lead.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{organizationId:'org-1'}}));
-    expect(db.lead.update).toHaveBeenCalledWith({where:{id:'l1',organizationId:'org-1'},data:{stage:'LOST'}});
+  it('desactiva propiedades sin borrarlas', async () => {
+    await new PropertiesController(db).remove('org-1', 'p1');
+    expect(db.property.update).toHaveBeenCalledWith({
+      where: { id: 'p1', organizationId: 'org-1' },
+      data: { status: 'INACTIVE' },
+    });
   });
 
-  it('consulta y actualiza un lead sin salir del tenant',async()=>{
-    const controller=new LeadsController(db);
-    await controller.one('org-1','l1');
-    await controller.update('org-1','l1',{score:90});
-    expect(db.lead.findFirst).toHaveBeenCalledWith({where:{id:'l1',organizationId:'org-1'},include:{conversations:true}});
-    expect(db.lead.update).toHaveBeenCalledWith({where:{id:'l1',organizationId:'org-1'},data:{score:90}});
+  it('un asesor solo consulta sus leads; un propietario ve todos', async () => {
+    const controller = new LeadsController(db);
+    await controller.list(owner, 'org-1', {} as any);
+    expect(db.lead.findMany.mock.calls[0][0].where).not.toHaveProperty('OR');
+
+    await controller.list(advisor, 'org-1', {} as any);
+    const advisorWhere = db.lead.findMany.mock.calls[1][0].where;
+    expect(advisorWhere.OR).toEqual(
+      expect.arrayContaining([{ assignedUserId: 'u2' }]),
+    );
   });
 
-  it('crea, asigna sesión y archiva agentes',async()=>{
-    const controller=new AgentsController(db);
-    await controller.create('org-1',{name:'Agente',responsibleUserId:'u1'});
-    await controller.assign('org-1','a1',{sessionId:'s1'});
-    await controller.remove('org-1','a1');
-    expect(db.agent.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({organizationId:'org-1',operationMode:'HYBRID'})}));
-    expect(db.whatsappSession.update).toHaveBeenCalledWith({where:{id:'s1',organizationId:'org-1'},data:{agentId:'a1'},include:{agent:true}});
-    expect(db.agent.update).toHaveBeenCalledWith({where:{id:'a1',organizationId:'org-1'},data:{status:'ARCHIVED',aiEnabled:false}});
+  it('impide que un asesor represente a dos agentes activos', async () => {
+    db.agent.findFirst.mockResolvedValue({ id: 'a0', name: 'Andrea' });
+    await expect(
+      new AgentsController(db).create('org-1', { name: 'Nuevo', responsibleUserId: 'u9' } as any),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(db.agent.create).not.toHaveBeenCalled();
   });
 
-  it('lista y actualiza agentes del tenant',async()=>{
-    const controller=new AgentsController(db);
-    await controller.list('org-1');
-    await controller.update('org-1','a1',{status:'ACTIVE'});
-    expect(db.agent.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{organizationId:'org-1',status:{not:'ARCHIVED'}}}));
-    expect(db.agent.update).toHaveBeenCalledWith({where:{id:'a1',organizationId:'org-1'},data:{status:'ACTIVE'}});
+  it('crea el agente cuando el asesor está libre', async () => {
+    await new AgentsController(db).create('org-1', {
+      name: 'Andrea',
+      responsibleUserId: 'u9',
+    } as any);
+    expect(db.agent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ organizationId: 'org-1', operationMode: 'HYBRID' }),
+      }),
+    );
   });
 
-  it('normaliza fechas y estados de las visitas',async()=>{
-    const controller=new VisitsController(db);
-    await controller.create('org-1',{propertyId:'p1',leadId:'l1',assignedUserId:'u1',startsAt:'2026-09-01T10:00:00Z',endsAt:'2026-09-01T11:00:00Z'});
-    await controller.update('org-1','v1',{startsAt:'2026-09-02T10:00:00Z',notes:'Confirmada'});
-    await controller.cancel('org-1','v1');
-    expect(db.visit.create).toHaveBeenCalledWith({data:expect.objectContaining({organizationId:'org-1',startsAt:expect.any(Date),endsAt:expect.any(Date),status:'SYNC_PENDING'})});
-    expect(db.visit.update).toHaveBeenNthCalledWith(1,{where:{id:'v1',organizationId:'org-1'},data:expect.objectContaining({startsAt:expect.any(Date),status:'SYNC_PENDING'})});
-    expect(db.visit.update).toHaveBeenNthCalledWith(2,{where:{id:'v1',organizationId:'org-1'},data:{status:'CANCELLED'}});
+  it('responde 409 si la sesión ya pertenece a otro agente en vez de reemplazarla', async () => {
+    db.agent.findFirst.mockResolvedValue({ id: 'a1' });
+    db.whatsappSession.findFirst.mockResolvedValue({ id: 's1', agentId: 'otro-agente' });
+    await expect(
+      new AgentsController(db).assign(owner, 'org-1', 'a1', { whatsappSessionId: 's1' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(db.whatsappSession.update).not.toHaveBeenCalled();
   });
 
-  it('lista visitas únicamente de la agencia',async()=>{
-    await new VisitsController(db).list('org-1');
-    expect(db.visit.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{organizationId:'org-1'}}));
+  it('asigna la sesión libre y deja historial y auditoría', async () => {
+    db.agent.findFirst.mockResolvedValue({ id: 'a1' });
+    db.whatsappSession.findFirst
+      .mockResolvedValueOnce({ id: 's1', agentId: null })
+      .mockResolvedValueOnce(null);
+    await new AgentsController(db).assign(owner, 'org-1', 'a1', { whatsappSessionId: 's1' });
+    expect(db.whatsappSession.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 's1' }, data: { agentId: 'a1' } }),
+    );
+    expect(db.agentSessionAssignment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ agentId: 'a1', whatsappSessionId: 's1', assignedByUserId: 'u1' }),
+    });
+    expect(db.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: 'AGENT_SESSION_ASSIGNED' }),
+    });
+  });
+
+  it('falla al desasignar cuando el agente no tiene sesión', async () => {
+    db.whatsappSession.findFirst.mockResolvedValue(null);
+    await expect(new AgentsController(db).unassign(owner, 'org-1', 'a1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('normaliza fechas de las citas y las marca para sincronizar', async () => {
+    const controller = new AppointmentsController(db);
+    await controller.create('org-1', {
+      leadId: 'l1',
+      propertyId: 'p1',
+      assignedUserId: 'u1',
+      startsAt: '2026-09-01T10:00:00Z',
+      endsAt: '2026-09-01T11:00:00Z',
+    } as any);
+    expect(db.appointment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: 'org-1',
+        startsAt: expect.any(Date),
+        status: 'SCHEDULED',
+        syncStatus: 'PENDING',
+      }),
+    });
+
+    await controller.cancel('org-1', 'v1');
+    expect(db.appointment.update).toHaveBeenCalledWith({
+      where: { id: 'v1', organizationId: 'org-1' },
+      data: expect.objectContaining({ status: 'CANCELLED', syncStatus: 'PENDING' }),
+    });
   });
 });
