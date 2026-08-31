@@ -714,6 +714,22 @@ model Appointment {
   @@index([assignedUserId, startsAt])
 }
 
+/// Credenciales del cliente OAuth de Google, una por despliegue.
+///
+/// Van en la base y no en variables de entorno por la misma razón que los
+/// proveedores de IA: se capturan desde la consola, quedan cifradas, y
+/// cambiarlas no exige un redespliegue. Solo `SUPER_ADMIN` las administra; las
+/// agencias las consumen sin verlas nunca.
+model GoogleOAuthClient {
+  id                    String   @id @default(uuid())
+  clientId              String
+  encryptedClientSecret String
+  redirectUri           String
+  enabled               Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
 model CalendarConnection {
   id                    String                   @id @default(uuid())
   organizationId        String

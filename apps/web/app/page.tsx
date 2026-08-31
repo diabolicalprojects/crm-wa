@@ -7,6 +7,7 @@ import { initials, label } from './lib/format';
 import { Agents, WhatsApp } from './screens/agents';
 import { AiProviders, Audit, Organizations, SystemHealth, Team, Usage } from './screens/admin';
 import { Appointments } from './screens/appointments';
+import { Calendars, GoogleSetup } from './screens/calendar';
 import { Brand, Login, type User } from './screens/auth';
 import { Conversations } from './screens/conversations';
 import { Dashboard } from './screens/dashboard';
@@ -23,6 +24,8 @@ const NAV: Nav[] = [
 
   { key: 'propiedades', label: 'Propiedades', icon: 'building', group: 'Inventario' },
 
+  { key: 'calendarios', label: 'Calendarios', icon: 'calendar', group: 'Configuración' },
+
   { key: 'agentes', label: 'Agentes de IA', icon: 'bot', group: 'Configuración' },
   { key: 'whatsapp', label: 'WhatsApp', icon: 'phone', group: 'Configuración' },
   { key: 'equipo', label: 'Equipo', icon: 'settings', group: 'Configuración' },
@@ -32,6 +35,7 @@ const NAV: Nav[] = [
   { key: 'proveedores', label: 'Proveedores de IA', icon: 'sparkle', group: 'Superadministración', superAdmin: true },
   { key: 'consumo', label: 'Consumo', icon: 'list', group: 'Superadministración', superAdmin: true },
   { key: 'salud', label: 'Salud del sistema', icon: 'shield', group: 'Superadministración', superAdmin: true },
+  { key: 'google', label: 'Google Calendar', icon: 'link', group: 'Superadministración', superAdmin: true },
 ];
 
 export default function Home() {
@@ -113,6 +117,8 @@ export default function Home() {
     proveedores: <AiProviders />,
     consumo: <Usage />,
     salud: <SystemHealth />,
+    google: <GoogleSetup />,
+    calendarios: <Calendars />,
   };
 
   return (
