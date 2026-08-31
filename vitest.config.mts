@@ -15,6 +15,8 @@ export default defineConfig({
       include: ['apps/api/src/**/*.ts', 'apps/web/app/lib/**/*.ts'],
       exclude: [
         '**/*.spec.ts',
+        // Infraestructura de pruebas, no código de producción.
+        '**/*.mock.ts',
         'apps/api/src/main.ts',
         'apps/api/src/app.module.ts',
       ],
@@ -23,7 +25,7 @@ export default defineConfig({
       // archivos grandes sin pruebas —el worker, el adaptador de OpenWA— así
       // que medía lo que ya estaba cubierto. Estos números son bajos y honestos:
       // súbelos conforme se agreguen pruebas, nunca bajes el piso.
-      thresholds: { lines: 45, statements: 45, functions: 42, branches: 40 },
+      thresholds: { lines: 48, statements: 48, functions: 48, branches: 41 },
     },
   },
 });
