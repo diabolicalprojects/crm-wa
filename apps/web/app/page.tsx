@@ -105,7 +105,7 @@ export default function Home() {
 
   const screens: Record<string, React.ReactNode> = {
     resumen: <Dashboard onOpenSessions={() => setPage('whatsapp')} />,
-    conversaciones: <Conversations />,
+    conversaciones: <Conversations user={user} />,
     prospectos: <Leads />,
     visitas: <Appointments organizationId={tenantId} />,
     propiedades: <Properties />,

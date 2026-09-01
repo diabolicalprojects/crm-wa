@@ -26,6 +26,12 @@ class AssignDto {
 
 class ListConversationsDto {
   @IsOptional() @IsEnum(ConversationStatus) status?: ConversationStatus;
+  /**
+   * Filtra por canal. Solo tiene sentido para quien ve varias sesiones: un
+   * asesor ya está acotado a las suyas por `advisorScope`, y ese filtro manda
+   * de todos modos, así que pedir el canal de otro no amplía lo que ve.
+   */
+  @IsOptional() @IsString() sessionId?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) take?: number;
   @IsOptional() @IsString() cursor?: string;
 }
@@ -53,7 +59,13 @@ export class ConversationsController {
   ) {
     const take = query.take ?? 50;
     const items = await this.db.conversation.findMany({
-      where: { organizationId, status: query.status, ...advisorScope(user) },
+      where: {
+        organizationId,
+        status: query.status,
+        sessionId: query.sessionId,
+        // Se aplica después del canal: acotar por rol nunca es opcional.
+        ...advisorScope(user),
+      },
       include: {
         lead: true,
         agent: { select: { id: true, name: true, aiEnabled: true } },

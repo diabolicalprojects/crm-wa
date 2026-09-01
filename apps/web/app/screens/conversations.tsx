@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Avatar, Badge, Banner, Button, Empty, Icon, PageHeader, Skeleton, useToast } from '../components/ui';
 import { request, requestList } from '../lib/api';
 import { useLiveEvents } from '../lib/live';
+import type { User } from './auth';
 import { dateTime, initials, label, money, phone, relative } from '../lib/format';
 
 const FILTERS = [
@@ -12,13 +13,15 @@ const FILTERS = [
   { value: 'RESOLVED', label: 'Resueltas' },
 ];
 
-export function Conversations() {
+export function Conversations({ user }: { user: User }) {
   const toast = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [detail, setDetail] = useState<any>();
   const [messages, setMessages] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [status, setStatus] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [sessions, setSessions] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -27,7 +30,10 @@ export function Conversations() {
 
   const load = useCallback(async () => {
     try {
-      const list = await requestList(`/conversations${status ? `?status=${status}` : ''}`);
+      const query = new URLSearchParams();
+      if (status) query.set('status', status);
+      if (sessionId) query.set('sessionId', sessionId);
+      const list = await requestList(`/conversations${query.toString() ? `?${query}` : ''}`);
       setItems(list);
       setSelectedId((current) => current || list[0]?.id || '');
     } catch (problem) {
@@ -35,9 +41,19 @@ export function Conversations() {
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, sessionId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Un asesor está acotado a su propio canal, así que el selector no le
+  // aportaría nada: solo se consulta para los roles que ven toda la agencia.
+  const veTodo = user.isSuperAdmin || user.role !== 'ADVISOR';
+  useEffect(() => {
+    if (!veTodo) return;
+    requestList('/whatsapp/sessions')
+      .then((list) => setSessions(list.filter((item: any) => item.status !== 'DELETED')))
+      .catch(() => setSessions([]));
+  }, [veTodo]);
 
   const loadThread = useCallback(async (id: string) => {
     if (!id) return;
@@ -102,6 +118,10 @@ export function Conversations() {
     return (item.lead?.name || '').toLowerCase().includes(needle) || (item.lead?.phone || '').includes(needle);
   });
 
+  // Se calcula sobre lo que se está viendo, no sobre el rol: el distintivo
+  // aparece exactamente cuando sirve para desambiguar.
+  const variosCanales = new Set(items.map((item) => item.sessionId)).size > 1;
+
   const humanControl = detail?.mode === 'HUMAN_ACTIVE';
   const lead = detail?.lead;
 
@@ -135,6 +155,22 @@ export function Conversations() {
                   value={search} onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
+              {veTodo && sessions.length > 1 && (
+                <select
+                  className="select" style={{ marginBottom: 8 }}
+                  aria-label="Filtrar por canal"
+                  value={sessionId}
+                  onChange={(event) => setSessionId(event.target.value)}
+                >
+                  <option value="">Todos los canales</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.agent?.name || session.name}
+                      {session.phoneNumber ? ` · ${phone(session.phoneNumber)}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
               <div className="row row-wrap" style={{ gap: 5 }}>
                 {FILTERS.map((filter) => (
                   <button
@@ -161,8 +197,17 @@ export function Conversations() {
                       <span className="conv-time">{relative(item.lastMessageAt)}</span>
                     </span>
                     <span className="conv-preview">{item.messages?.[0]?.text || 'Sin mensajes'}</span>
-                    <span style={{ marginTop: 5, display: 'inline-block' }}>
+                    <span className="row row-wrap" style={{ marginTop: 5, gap: 5 }}>
                       <Badge value={item.mode} />
+                      {/* Solo cuando hay más de un canal a la vista: con uno
+                          solo sería ruido, y es justo lo que distingue dos
+                          conversaciones del mismo prospecto en números
+                          distintos. */}
+                      {variosCanales && (
+                        <Badge tone="neutral">
+                          {item.agent?.name || item.session?.name || 'Sin canal'}
+                        </Badge>
+                      )}
                     </span>
                   </span>
                 </button>
@@ -181,7 +226,10 @@ export function Conversations() {
                   <Avatar text={initials(lead?.name, '·')} />
                   <div className="who">
                     <b>{lead?.name || phone(lead?.phone)}</b>
-                    <span className="cell-sub">{phone(lead?.phone)} · {detail.agent?.name || 'Sin agente'}</span>
+                    <span className="cell-sub">
+                      {phone(lead?.phone)} · {detail.agent?.name || 'Sin agente'}
+                      {detail.session?.phoneNumber ? ` · por ${phone(detail.session.phoneNumber)}` : ''}
+                    </span>
                   </div>
                   <div className="chat-actions">
                     {humanControl ? (
