@@ -79,6 +79,13 @@ export default function Home() {
       .catch(() => setOrganizations([]));
   }, [user]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [menuOpen]);
+
   function selectOrganization(id: string) {
     if (id) localStorage.setItem('crm_org', id);
     else localStorage.removeItem('crm_org');
@@ -124,6 +131,10 @@ export default function Home() {
   return (
     <ToastProvider>
       <div className="shell">
+        {menuOpen && (
+          <button className="scrim only-mobile" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)} />
+        )}
+
         <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
           <Brand />
           <nav className="nav">
@@ -159,11 +170,13 @@ export default function Home() {
             <button className="btn btn-ghost btn-icon menu-btn" onClick={() => setMenuOpen((open) => !open)} aria-label="Menú">
               <Icon name="menu" />
             </button>
-            <span className="breadcrumb">{current.group} / <b>{current.label}</b></span>
+            <span className="breadcrumb">
+              <span className="crumb-group">{current.group} / </span><b>{current.label}</b>
+            </span>
             <div className="topbar-right">
               {user.isSuperAdmin && organizations.length > 0 && (
                 <select
-                  className="select" style={{ width: 'auto', minWidth: 170 }}
+                  className="select org-select"
                   aria-label="Agencia activa"
                   value={organizationId}
                   onChange={(event) => selectOrganization(event.target.value)}
@@ -174,7 +187,7 @@ export default function Home() {
                   ))}
                 </select>
               )}
-              <span className="muted" style={{ fontSize: 13 }}>{user.email}</span>
+              <span className="topbar-email">{user.email}</span>
             </div>
           </header>
 

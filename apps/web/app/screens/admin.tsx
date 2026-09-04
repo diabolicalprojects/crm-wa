@@ -345,12 +345,12 @@ export function AiProviders() {
                 <tbody>
                   {models.map((model: any) => (
                     <tr key={model.id}>
-                      <td><b>{model.name}</b></td>
-                      <td className="mono" style={{ fontSize: 12.5 }}>{model.model}</td>
-                      <td>{model.provider?.name}</td>
-                      <td>{model.organization ? model.organization.name : <span className="muted">Global</span>}</td>
-                      <td className="num" style={{ textAlign: 'right' }}>{model.temperature}</td>
-                      <td style={{ textAlign: 'right' }}>{model.isDefault && <Badge tone="primary">Predeterminado</Badge>}</td>
+                      <td data-label="Nombre"><b>{model.name}</b></td>
+                      <td data-label="Modelo" className="mono" style={{ fontSize: 12.5 }}>{model.model}</td>
+                      <td data-label="Proveedor">{model.provider?.name}</td>
+                      <td data-label="Alcance">{model.organization ? model.organization.name : <span className="muted">Global</span>}</td>
+                      <td data-label="Temp." className="num" style={{ textAlign: 'right' }}>{model.temperature}</td>
+                      <td data-label="" style={{ textAlign: 'right' }}>{model.isDefault && <Badge tone="primary">Predeterminado</Badge>}</td>
                     </tr>
                   ))}
                 </tbody>

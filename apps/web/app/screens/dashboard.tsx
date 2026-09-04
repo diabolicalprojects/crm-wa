@@ -118,9 +118,13 @@ export function Dashboard({ onOpenSessions }: { onOpenSessions: () => void }) {
                 <tbody>
                   {data.audit.map((entry: any) => (
                     <tr key={entry.id}>
-                      <td style={{ width: 30 }}><Icon name="shield" size={15} /></td>
-                      <td><b>{entry.action}</b><span className="cell-sub">{entry.entityType}</span></td>
-                      <td className="muted num" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td>
+                        <span className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                          <Icon name="shield" size={15} />
+                          <span><b>{entry.action}</b><span className="cell-sub">{entry.entityType}</span></span>
+                        </span>
+                      </td>
+                      <td data-label="Fecha" className="muted num" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {dateTime(entry.createdAt)}
                       </td>
                     </tr>

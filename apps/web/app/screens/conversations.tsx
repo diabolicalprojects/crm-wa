@@ -19,6 +19,7 @@ export function Conversations({ user }: { user: User }) {
   const [detail, setDetail] = useState<any>();
   const [messages, setMessages] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState('');
+  const [vista, setVista] = useState<'lista' | 'hilo' | 'ficha'>('lista');
   const [status, setStatus] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [sessions, setSessions] = useState<any[]>([]);
@@ -126,7 +127,7 @@ export function Conversations({ user }: { user: User }) {
   const lead = detail?.lead;
 
   return (
-    <section className="content">
+    <section className="content content-inbox">
       <PageHeader
         eyebrow="Bandeja"
         title="Conversaciones"
@@ -144,7 +145,7 @@ export function Conversations({ user }: { user: User }) {
           />
         </div>
       ) : (
-        <div className="inbox">
+        <div className={`inbox viendo-${vista}`}>
           {/* Columna 1 — filtros y lista */}
           <div className="inbox-col list-col">
             <div className="inbox-head">
@@ -188,7 +189,7 @@ export function Conversations({ user }: { user: User }) {
                 <button
                   key={item.id}
                   className={`conv-item ${selectedId === item.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedId(item.id)}
+                  onClick={() => { setSelectedId(item.id); setVista('hilo'); }}
                 >
                   <Avatar text={initials(item.lead?.name, '·')} />
                   <span className="conv-copy">
@@ -219,10 +220,14 @@ export function Conversations({ user }: { user: User }) {
           </div>
 
           {/* Columna 2 — hilo y compositor */}
-          <div className="inbox-col">
+          <div className="inbox-col chat-col">
             {!detail ? <Skeleton rows={8} /> : (
               <>
                 <div className="chat-head">
+                  <Button
+                    className="only-mobile" icon="back" title="Volver a la lista"
+                    onClick={() => setVista('lista')}
+                  />
                   <Avatar text={initials(lead?.name, '·')} />
                   <div className="who">
                     <b>{lead?.name || phone(lead?.phone)}</b>
@@ -233,15 +238,21 @@ export function Conversations({ user }: { user: User }) {
                   </div>
                   <div className="chat-actions">
                     {humanControl ? (
-                      <Button icon="bot" onClick={() => act('return-to-ai', 'La IA retomó la conversación')}>
-                        Devolver a la IA
+                      <Button icon="bot" title="Devolver a la IA" onClick={() => act('return-to-ai', 'La IA retomó la conversación')}>
+                        <span className="accion-label">Devolver a la IA</span>
                       </Button>
                     ) : (
-                      <Button icon="users" onClick={() => act('takeover', 'Tomaste la conversación')}>
-                        Tomar control
+                      <Button icon="users" title="Tomar control" onClick={() => act('takeover', 'Tomaste la conversación')}>
+                        <span className="accion-label">Tomar control</span>
                       </Button>
                     )}
                     <Button icon="check" onClick={() => act('resolve', 'Conversación resuelta')} title="Marcar como resuelta" />
+                    {/* El panel del prospecto no cabe junto al hilo en pantallas
+                        angostas, así que se alcanza desde aquí. */}
+                    <Button
+                      className="only-mobile" icon="card" title="Ficha del prospecto"
+                      onClick={() => setVista('ficha')}
+                    />
                   </div>
                 </div>
 
@@ -280,8 +291,8 @@ export function Conversations({ user }: { user: User }) {
                 <div className="composer">
                   <form onSubmit={send}>
                     <input className="input" name="text" placeholder="Escribe un mensaje…" autoComplete="off" />
-                    <Button type="submit" variant="primary" icon="send" disabled={sending}>
-                      {sending ? 'Enviando…' : 'Enviar'}
+                    <Button type="submit" variant="primary" icon="send" disabled={sending} title="Enviar">
+                      <span className="composer-label">{sending ? 'Enviando…' : 'Enviar'}</span>
                     </Button>
                   </form>
                   <p className="muted" style={{ fontSize: 12, marginTop: 7 }}>
@@ -294,7 +305,10 @@ export function Conversations({ user }: { user: User }) {
 
           {/* Columna 3 — panel del prospecto */}
           <div className="inbox-col lead-col">
-            <div className="inbox-head"><b style={{ fontSize: 13 }}>Prospecto</b></div>
+            <div className="inbox-head row" style={{ gap: 8 }}>
+              <Button className="only-mobile" size="sm" icon="back" title="Volver al hilo" onClick={() => setVista('hilo')} />
+              <b style={{ fontSize: 13 }}>Prospecto</b>
+            </div>
             <div className="lead-panel">
               {!lead ? <Skeleton rows={4} /> : (
                 <>

@@ -35,6 +35,8 @@ const PATHS: Record<string, string> = {
   sparkle: 'M10 3l1.8 4.2L16 9l-4.2 1.8L10 15l-1.8-4.2L4 9l4.2-1.8z',
   copy: 'M7 7V4.5a1 1 0 0 1 1-1h7.5a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H13M4.5 7H12a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z',
   link: 'M8.5 11.5a3 3 0 0 0 4.3 0l2.4-2.4a3 3 0 0 0-4.3-4.3l-1.3 1.4M11.5 8.5a3 3 0 0 0-4.3 0l-2.4 2.4a3 3 0 0 0 4.3 4.3l1.3-1.4',
+  back: 'M16 10H4.5M9.5 15 4.5 10l5-5',
+  card: 'M3 7.5h14M4.5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14V6a1.5 1.5 0 0 1 1.5-1.5zM6 12h3',
 };
 
 export function Icon({ name, size = 17 }: { name: keyof typeof PATHS | string; size?: number }) {
@@ -313,7 +315,11 @@ export function DataTable<T extends { id?: string }>({
                 style={onRowClick ? { cursor: 'pointer' } : undefined}
               >
                 {columns.map((column) => (
-                  <td key={column.key} style={column.align === 'right' ? { textAlign: 'right' } : undefined}>
+                  <td
+                    key={column.key}
+                    data-label={column.head}
+                    style={column.align === 'right' ? { textAlign: 'right' } : undefined}
+                  >
                     {column.cell(row)}
                   </td>
                 ))}
