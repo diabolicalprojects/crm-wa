@@ -16,6 +16,19 @@ enum IndustryType {
   TRAVEL
 }
 
+/// Cómo llega un prospecto nuevo a un asesor (§14.2).
+enum AssignmentMode {
+  /// Al responsable del agente que atiende ese canal. Es el comportamiento
+  /// histórico y sigue siendo el predeterminado.
+  CHANNEL_RESPONSIBLE
+  /// Reparto secuencial entre los asesores activos.
+  ROUND_ROBIN
+  /// Según el horario de guardia configurado.
+  ON_DUTY
+  /// Siempre al propietario de la agencia.
+  OWNER
+}
+
 enum OrganizationStatus {
   ACTIVE
   SUSPENDED
@@ -256,8 +269,21 @@ model Organization {
   timezone        String             @default("America/Mexico_City")
   defaultLanguage String             @default("es-MX")
   status          OrganizationStatus @default(ACTIVE)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+
+  /// Cómo se reparte un prospecto nuevo entre los asesores.
+  assignmentMode     AssignmentMode @default(CHANNEL_RESPONSIBLE)
+  /// Manda sobre el modo: un prospecto que vuelve se queda con quien lo
+  /// atendió la primera vez. Es una regla de comisión antes que de software,
+  /// y es lo que evita la pelea interna que hunde la adopción del CRM.
+  stickyAdvisor      Boolean        @default(true)
+  /// Turnos para `ON_DUTY`: `[{ userId, days: [1..7], from: "09:00", to: "18:00" }]`
+  /// evaluado en la zona horaria de la agencia.
+  dutySchedule       Json?
+  /// Estado del carrusel: a quién le tocó la última vez.
+  lastAssignedUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   members         OrganizationMember[]
   agents          Agent[]

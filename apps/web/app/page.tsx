@@ -7,6 +7,7 @@ import { initials, label } from './lib/format';
 import { Agents, WhatsApp } from './screens/agents';
 import { AiProviders, Audit, Organizations, SystemHealth, Team, Usage } from './screens/admin';
 import { Appointments } from './screens/appointments';
+import { Assignment } from './screens/assignment';
 import { Calendars, GoogleSetup } from './screens/calendar';
 import { Brand, Login, type User } from './screens/auth';
 import { Conversations } from './screens/conversations';
@@ -21,6 +22,7 @@ const NAV: Nav[] = [
   { key: 'conversaciones', label: 'Conversaciones', icon: 'chat', group: 'Operación' },
   { key: 'prospectos', label: 'Prospectos', icon: 'users', group: 'Operación' },
   { key: 'visitas', label: 'Visitas', icon: 'calendar', group: 'Operación' },
+  { key: 'asignacion', label: 'Asignación', icon: 'users', group: 'Operación' },
 
   { key: 'propiedades', label: 'Propiedades', icon: 'building', group: 'Inventario' },
 
@@ -115,6 +117,7 @@ export default function Home() {
     conversaciones: <Conversations user={user} />,
     prospectos: <Leads />,
     visitas: <Appointments organizationId={tenantId} />,
+    asignacion: <Assignment />,
     propiedades: <Properties />,
     agentes: <Agents organizationId={tenantId} />,
     whatsapp: <WhatsApp />,

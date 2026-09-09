@@ -6,6 +6,8 @@ import { AiController } from './ai.controller';
 import { AiGateway } from './ai-gateway';
 import { AiToolsService } from './ai-tools.service';
 import { AppointmentsController } from './appointments.controller';
+import { AssignmentController } from './assignment.controller';
+import { AssignmentService } from './assignment.service';
 import { AuditController } from './audit.controller';
 import { AuthController, AuthService, JwtGuard, RolesGuard } from './auth';
 import { CalendarController, GoogleClientController } from './calendar.controller';
@@ -51,6 +53,7 @@ import { WhatsappController } from './whatsapp.controller';
     PropertiesController,
     LeadsController,
     ConversationsController,
+    AssignmentController,
     MediaController,
     OpenWaWebhookController,
   ],
@@ -61,6 +64,7 @@ import { WhatsappController } from './whatsapp.controller';
     AuthService,
     OpenWaGateway,
     OpenWaIngestService,
+    AssignmentService,
     MediaStorageService,
     MediaFetchService,
     AiGateway,

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MessageType, Prisma, SessionStatus } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { AutomationService } from './automation.service';
+import { AssignmentService } from './assignment.service';
 import { MediaStorageService } from './media-storage.service';
 import { EventsService } from './events.service';
 import { mapProviderStatus } from './openwa.gateway';
@@ -74,11 +75,13 @@ export class OpenWaIngestService {
     private automation: AutomationService,
     private events: EventsService,
     private media: MediaStorageService,
+    private assignment: AssignmentService,
   ) {}
 
   async handle(envelope: OpenWaEnvelope): Promise<{ handled: boolean; reason?: string }> {
     const session = await this.db.whatsappSession.findFirst({
       where: { providerSessionId: String(envelope.sessionId) },
+      include: { agent: { select: { responsibleUserId: true } } },
     });
     // Solo se aceptan sesiones previamente registradas (spec §10.3).
     if (!session) return { handled: false, reason: 'sesión desconocida' };
@@ -156,6 +159,8 @@ export class OpenWaIngestService {
       });
       conversation.agentId = session.agentId;
     }
+
+    await this.assignAdvisor(conversation, lead, session);
 
     const mediaId = await this.absorbMedia(organizationId, data);
 
@@ -418,6 +423,35 @@ export class OpenWaIngestService {
         return false;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Le pone dueño a la conversación en cuanto entra el primer mensaje.
+   *
+   * Solo corre cuando todavía no tiene: reasignar en cada mensaje le quitaría
+   * al supervisor toda capacidad de mover a alguien a mano. El resultado se
+   * escribe también en el prospecto, porque es lo que hace que la próxima vez
+   * que escriba le toque el mismo asesor.
+   */
+  private async assignAdvisor(conversation: any, lead: any, session: any) {
+    if (conversation.assignedUserId) return;
+
+    const elegido = await this.assignment.resolve({
+      organizationId: conversation.organizationId,
+      currentUserId: lead.assignedUserId,
+      channelUserId: session.agent?.responsibleUserId,
+    });
+    if (!elegido) return;
+
+    await this.db.conversation.update({
+      where: { id: conversation.id },
+      data: { assignedUserId: elegido },
+    });
+    conversation.assignedUserId = elegido;
+
+    if (!lead.assignedUserId) {
+      await this.db.lead.update({ where: { id: lead.id }, data: { assignedUserId: elegido } });
     }
   }
 

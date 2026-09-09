@@ -136,7 +136,7 @@ describe('ingesta de eventos', () => {
     ingest = new OpenWaIngestService(db, automation, events, {
       store: vi.fn(),
       reserve: vi.fn(),
-    } as any);
+    } as any, { resolve: vi.fn(async () => undefined) } as any);
   });
 
   it('registra un mensaje entrante y encola la respuesta de la IA', async () => {
