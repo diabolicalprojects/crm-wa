@@ -1,7 +1,7 @@
 # Estado del proyecto — Horizonte CRM
 
 > Documento de contexto para retomar el trabajo. Última actualización:
-> 9 de septiembre de 2026, commit `d3f9a40`.
+> 9 de septiembre de 2026, commit `8bfa453`.
 >
 > Complementa, no reemplaza:
 > - [`especificacion-crm-ia-openwa-inmobiliaria.md`](../especificacion-crm-ia-openwa-inmobiliaria.md) — qué debe ser el producto
@@ -76,6 +76,11 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
   propietario, con la regla del asesor persistente por encima de todas.
 - **Seguimiento proactivo**: la IA vuelve a escribir a quien dejó de contestar.
   Apagado por omisión y por agente.
+- **Permisos por persona** encima de los cuatro roles, verificados contra la
+  base en cada petición.
+- **Rastro de la IA**: qué herramienta corrió, con qué y qué devolvió,
+  consultable desde la conversación.
+- **Avisos** en la consola y por WhatsApp, con preferencia por persona.
 
 ### Pendiente de verificar
 
@@ -103,9 +108,11 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
 - **Fuentes de inventario** API, XML/JSON y Google Sheets (§14.4). Solo hay
   carga manual y CSV/Excel. El esquema ya tiene `PropertySource` y
   `PropertySyncRun`; falta el motor de mapeo y el worker.
-- **Permisos granulares.** Cuatro roles fijos. La brecha frente a NOCNOK y lo
-  que justifica el precio de agencia; ver el montón A5 de
-  [`frente-a-nocnok.md`](frente-a-nocnok.md).
+- **Avisos por correo.** No hay SMTP en esta infraestructura. Los otros dos
+  canales sí están.
+- **Los permisos sobre la propiedad** —editar la de otro, ver a su propietario,
+  exportar el inventario— dependen de que `Property` tenga dueño, que es
+  Tramo 3.
 - **La ficha de propiedad completa**: comisión, exclusividad, las seis
   operaciones, clave interna y propietario confidencial (montón A4).
 - **Pruebas E2E** del guion completo de §22.3 y evaluaciones antialucinación

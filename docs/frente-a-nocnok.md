@@ -91,11 +91,16 @@ interna que hunde la adopción de un CRM en una agencia.
 asesor persistente por encima de todos. Queda fuera «líder de grupo», que
 necesita el concepto de equipo y todavía no existe.
 
-### A3. Notificaciones · **alto valor, costo medio**
+### A3. Notificaciones · **hecho** (`8bfa453`)
 
-No existe ninguna. NOCNOK cruza cinco eventos por tres canales —correo,
-WhatsApp y navegador—. El evento que vende es «prospecto nuevo», y el canal que
-vende es WhatsApp: el dueño quiere enterarse sin abrir nada.
+NOCNOK cruza cinco eventos por tres canales. Horizonte cruza cinco eventos por
+**dos**: consola y WhatsApp. El correo no está y no se finge: no hay SMTP en
+esta infraestructura, y la pantalla lo dice en vez de ofrecer un canal que
+falla en silencio.
+
+El evento que vende —«prospecto nuevo»— sale por WhatsApp, que es el canal por
+el que el dueño quiere enterarse sin abrir nada. Solo el primer mensaje de cada
+hilo, para que el canal no se vuelva una conversación paralela con el asesor.
 
 ### A4. La ficha de propiedad, completa · **medio-alto**
 
@@ -113,16 +118,25 @@ Comparando campo por campo, a `Property` le faltan:
 | Propietario, confidencial por diseño | Es el activo que el dueño no quiere que se lleve un asesor. |
 | Precisión de ubicación publicable | Decidir por propiedad si se muestra la calle exacta. |
 
-### A5. Permisos granulares · **alto para agencias, no para asesores**
+### A5. Permisos granulares · **hecho en parte** (`97061da`)
 
 Cuatro roles fijos contra los ~80 permisos de NOCNOK. Esta es la brecha que
 justifica el salto de precio de asesor individual a agencia, y resuelve un
 dolor que no tiene que ver con productividad: **el asesor que se va y se lleva
 la cartera**.
 
-No hace falta copiar ochenta. Hacen falta los que se piden en voz alta: ver
-propietarios de otros, editar propiedades de otros, reasignar, descargar, ver
-documentos privados, y estadísticas propias contra las del equipo.
+No hacía falta copiar ochenta. Hay doce, y el rol sigue siendo el punto de
+partida: la matriz existe para la excepción —un asesor que sí ve toda la
+agencia, un supervisor sin reasignar— y no para llenarse entera. Se verifica
+contra la base y no contra el token, para que retirar un permiso surta efecto
+hoy y no cuando caduque la sesión.
+
+**Lo que falta depende del Tramo 3.** «Editar propiedades de otros», «ver
+propietarios de otros» y «descargar el inventario» no están porque `Property`
+todavía no tiene dueño ni contacto confidencial, y no existe exportación. Una
+prueba recorre el código y falla si alguien mete al catálogo un permiso que no
+bloquea nada: un permiso que no muerde le promete al dueño un control que no
+tiene.
 
 ### A6. Contactos separados del pipeline · **medio**
 
@@ -177,15 +191,17 @@ huecos que existen.
 
 Es la función que más pesa en una demo, y el competidor la tiene apagada.
 
-### B3. La garantía antialucinación, como producto · **ya construida, sin vender**
+### B3. La garantía antialucinación, como producto · **hecho** (`97061da`)
 
 Que el agente no pueda mencionar una propiedad que no salió de una herramienta
 ejecutada en esa conversación no es un detalle técnico: es la objeción número
 uno de cualquier dueño que ha visto a un bot prometer algo inexistente.
 
-Falta hacerla visible: un registro por conversación de qué herramientas se
-ejecutaron y con qué resultado, consultable desde la bandeja. Ya está en
-`AiRun`; falta la vista.
+Ya es visible. `AiRun` guardaba una lista de nombres de herramienta —con eso no
+se responde «¿de dónde sacó ese precio?»— y ahora guarda con qué se llamó cada
+una y qué devolvió. El panel de la conversación lo enseña junto a las
+propiedades que la IA llegó a mostrar, con su hora. Un turno sin consultas se
+dice con esas palabras: no afirmó nada del inventario.
 
 ### B4. Analista en lenguaje natural · **NOCNOK lo tiene en beta**
 
@@ -233,10 +249,14 @@ seguimiento proactivo. Al terminar, la demo es: llega un mensaje a las 11 de la
 noche con una foto, se reparte solo, se contesta, y a los dos días la IA
 insiste sin que nadie haga nada.
 
-**Tramo 2 — que el dueño confíe** (A5, B3, A3)
+**Tramo 2 — que el dueño confíe** (A5, B3, A3) · ✅ **hecho el 9 de septiembre
+de 2026, commits `97061da` y `8bfa453`**
 Permisos que se piden en voz alta, el registro visible de lo que hizo la IA en
 cada conversación, y notificaciones. Al terminar, la demo responde a «¿y cómo
 sé que no está inventando?» y a «¿y cómo evito que mi asesor se lleve todo?».
+
+Queda una parte de A5 atada al Tramo 3: los permisos sobre la propiedad no se
+pueden exigir hasta que la propiedad tenga dueño.
 
 **Tramo 3 — que la ficha aguante el mercado** (A4, A6, A7, B2)
 La propiedad completa con comisión y exclusividad, contactos separados de
