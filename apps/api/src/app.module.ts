@@ -12,6 +12,7 @@ import { AuditController } from './audit.controller';
 import { AuthController, AuthService, JwtGuard, RolesGuard } from './auth';
 import { CalendarController, GoogleClientController } from './calendar.controller';
 import { CalendarSyncService } from './calendar-sync.service';
+import { FollowUpService } from './follow-up.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { AutomationService } from './automation.service';
 import { ConversationsController } from './conversations.controller';
@@ -67,6 +68,7 @@ import { WhatsappController } from './whatsapp.controller';
     AssignmentService,
     MediaStorageService,
     MediaFetchService,
+    FollowUpService,
     AiGateway,
     AiToolsService,
     AutomationService,

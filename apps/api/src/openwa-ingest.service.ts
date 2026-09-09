@@ -3,6 +3,7 @@ import { MessageType, Prisma, SessionStatus } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { AutomationService } from './automation.service';
 import { AssignmentService } from './assignment.service';
+import { pidioNoSerContactado } from './follow-up.service';
 import { MediaStorageService } from './media-storage.service';
 import { EventsService } from './events.service';
 import { mapProviderStatus } from './openwa.gateway';
@@ -186,9 +187,21 @@ export class OpenWaIngestService {
     }
 
     const now = new Date();
+    // Una baja es definitiva y se detecta aquí, no en el barrido: hay que
+    // registrarla aunque nunca vuelva a haber un seguimiento pendiente.
+    const baja = pidioNoSerContactado(data.body ? String(data.body) : undefined);
+    if (baja) {
+      this.log.log(`El prospecto pidió no ser contactado en la conversación ${conversation.id}`);
+    }
+
     await this.db.conversation.update({
       where: { id: conversation.id },
-      data: { lastMessageAt: now, lastInboundAt: now, status: 'OPEN' },
+      data: {
+        lastMessageAt: now,
+        lastInboundAt: now,
+        status: 'OPEN',
+        ...(baja ? { followUpOptOut: true } : {}),
+      },
     });
 
     this.events.publish(organizationId, {

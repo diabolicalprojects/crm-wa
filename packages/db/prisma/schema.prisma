@@ -380,8 +380,18 @@ model Agent {
   modelConfigId      String?
   businessHours      Json?
   handoffRules       Json?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+
+  /// Seguimiento proactivo: la IA vuelve a escribir sola cuando el prospecto
+  /// dejó de contestar. **Apagado por omisión a propósito**: mandar mensajes no
+  /// solicitados en nombre de una agencia es su decisión, no la nuestra, y es
+  /// la vía más rápida a que WhatsApp restrinja el número.
+  followUpEnabled     Boolean  @default(false)
+  /// Horas de silencio antes de insistir.
+  followUpDelayHours  Int      @default(48)
+  /// Cuántas veces como máximo, en toda la vida de la conversación.
+  followUpMaxAttempts Int      @default(2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   responsibleUser User                     @relation(fields: [responsibleUserId], references: [id])
@@ -494,8 +504,16 @@ model Conversation {
   lastMessageAt    DateTime?
   lastInboundAt    DateTime?
   lastOutboundAt   DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+
+  /// Cuántos seguimientos proactivos se han mandado ya en esta conversación.
+  followUpCount  Int       @default(0)
+  lastFollowUpAt DateTime?
+  /// El prospecto pidió que no le escriban. Es definitivo: ninguna regla lo
+  /// levanta, y solo se apaga a mano desde la bandeja.
+  followUpOptOut Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lead         Lead                @relation(fields: [leadId], references: [id], onDelete: Cascade)
@@ -509,6 +527,9 @@ model Conversation {
   @@unique([organizationId, leadId, sessionId])
   @@index([organizationId, mode])
   @@index([organizationId, status, lastMessageAt])
+  /// El barrido de seguimiento busca conversaciones calladas; sin esto
+  /// recorre la tabla entera cada minuto.
+  @@index([status, mode, lastOutboundAt])
   @@index([assignedUserId])
 }
 

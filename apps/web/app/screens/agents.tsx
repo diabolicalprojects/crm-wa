@@ -10,6 +10,21 @@ import { OPERATION_MODES, label, phone, relative } from '../lib/format';
 
 /* ------------------------------------------------------------------ agentes */
 
+/**
+ * El formulario entrega todo como texto y la API valida tipos. Sin esto, un
+ * `"false"` llega como cadena y `@IsBoolean()` lo rechaza con un error que no
+ * le dice nada útil a quien lo está capturando.
+ */
+function conTipos(values: Record<string, string>) {
+  const { followUpEnabled, followUpDelayHours, followUpMaxAttempts, ...resto } = values;
+  return {
+    ...resto,
+    ...(followUpEnabled !== undefined ? { followUpEnabled: followUpEnabled === 'true' } : {}),
+    ...(followUpDelayHours ? { followUpDelayHours: Number(followUpDelayHours) } : {}),
+    ...(followUpMaxAttempts ? { followUpMaxAttempts: Number(followUpMaxAttempts) } : {}),
+  };
+}
+
 export function Agents({ organizationId }: { organizationId?: string }) {
   const toast = useToast();
   const [rows, setRows] = useState<any[]>([]);
@@ -111,6 +126,26 @@ export function Agents({ organizationId }: { organizationId?: string }) {
       defaultValue: agent?.systemInstructions ?? '',
       hint: 'Reglas propias de tu agencia. No pueden contradecir las reglas antialucinación del sistema.',
     },
+    {
+      name: 'followUpEnabled', label: 'Seguimiento proactivo', required: false,
+      type: 'select' as const,
+      options: [
+        { value: 'false', label: 'Apagado' },
+        { value: 'true', label: 'Encendido — vuelve a escribir si no contestan' },
+      ],
+      defaultValue: String(agent?.followUpEnabled ?? false),
+      hint: 'Escribe de nuevo por su cuenta a quien dejó de contestar. Nunca entre las 9 de la noche y las 9 de la mañana, nunca si un asesor tomó la conversación, y nunca a quien pidió que no le escriban.',
+    },
+    {
+      name: 'followUpDelayHours', label: 'Esperar antes de insistir', required: false,
+      type: 'number' as const, defaultValue: String(agent?.followUpDelayHours ?? 48),
+      hint: 'Horas de silencio del prospecto. Mínimo 2.',
+    },
+    {
+      name: 'followUpMaxAttempts', label: 'Veces que insiste', required: false,
+      type: 'number' as const, defaultValue: String(agent?.followUpMaxAttempts ?? 2),
+      hint: 'Máximo 5 en toda la conversación. Si el agente considera que no tiene nada útil que aportar, no manda nada aunque le queden intentos.',
+    },
   ];
 
   return (
@@ -154,7 +189,7 @@ export function Agents({ organizationId }: { organizationId?: string }) {
           fields={formFields()}
           onClose={() => setCreating(false)}
           onSubmit={async (values) => {
-            await request('/agents', { method: 'POST', body: JSON.stringify(values) });
+            await request('/agents', { method: 'POST', body: JSON.stringify(conTipos(values)) });
             toast('Agente creado');
             load();
           }}
@@ -169,7 +204,7 @@ export function Agents({ organizationId }: { organizationId?: string }) {
           fields={formFields(editing).map((field) => ({ ...field, required: false }))}
           onClose={() => setEditing(undefined)}
           onSubmit={async (values) => {
-            await request(`/agents/${editing.id}`, { method: 'PATCH', body: JSON.stringify(values) });
+            await request(`/agents/${editing.id}`, { method: 'PATCH', body: JSON.stringify(conTipos(values)) });
             toast('Agente actualizado');
             load();
           }}

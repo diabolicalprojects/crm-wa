@@ -69,6 +69,32 @@ const ADJUNTOS: Record<string, string> = {
   CONTACT: 'un contacto',
 };
 
+/** Palabra con la que el agente declina insistir. */
+export const NO_INSISTIR = 'NO_INSISTIR';
+
+/**
+ * Lo que se le añade al contexto cuando el turno es un seguimiento proactivo y
+ * no una respuesta.
+ *
+ * Dos cosas importan aquí. Que el agente sepa que **nadie le escribió** —de
+ * otro modo responde a un mensaje que no existe— y que pueda negarse. Sin la
+ * salida de escape, un seguimiento se manda siempre, tenga o no algo que decir,
+ * y eso es exactamente lo que se siente como spam.
+ */
+export const FOLLOW_UP_INSTRUCTIONS = `
+
+SEGUIMIENTO PROACTIVO
+Este turno NO responde a un mensaje nuevo: el prospecto lleva días sin contestar
+y la agencia configuró que le escribas de nuevo.
+
+- Escribe UN solo mensaje, corto, retomando algo concreto de lo ya hablado.
+- No repitas lo que ya dijiste con otras palabras. Aporta algo: una opción que
+  no habías mostrado, una pregunta que ayude a acotar, o una facilidad real.
+- No reproches el silencio ni presiones. Una sola pregunta, fácil de contestar.
+- Si no tienes nada útil que aportar, o el prospecto ya dijo que no le
+  interesa, responde exactamente ${NO_INSISTIR} y nada más. No se enviará
+  ningún mensaje, y eso es preferible a insistir por insistir.`;
+
 @Injectable()
 export class AutomationService implements OnModuleInit, OnModuleDestroy {
   private connection?: IORedis;
@@ -121,7 +147,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
    * conversación muda para siempre. El historial de fallos vive en `AiRun`,
    * que además guarda el error y los tokens.
    */
-  async enqueue(conversationId: string) {
+  async enqueue(conversationId: string, opts: { followUp?: boolean } = {}) {
     if (!this.queue) return undefined;
 
     // Un trabajo que ya terminó —bien o mal— conserva su `jobId` hasta que se
@@ -144,7 +170,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
 
     return this.queue.add(
       'reply',
-      { conversationId },
+      { conversationId, followUp: opts.followUp ?? false },
       {
         jobId: conversationId,
         delay: DEBOUNCE_MS,
@@ -156,7 +182,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  private async process(job: Job<{ conversationId: string }>) {
+  private async process(job: Job<{ conversationId: string; followUp?: boolean }>) {
     const conversationId = job.data.conversationId;
     const conversation = await this.db.conversation.findUnique({
       where: { id: conversationId },
@@ -224,7 +250,13 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     });
 
     try {
-      const outcome = await this.generate(conversation, agent, modelConfig, run.id);
+      const outcome = await this.generate(
+        conversation,
+        agent,
+        modelConfig,
+        run.id,
+        Boolean(job.data.followUp),
+      );
       await this.db.aiRun.update({
         where: { id: run.id },
         data: {
@@ -301,7 +333,13 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private async generate(conversation: any, agent: any, modelConfig: any, runId: string) {
+  private async generate(
+    conversation: any,
+    agent: any,
+    modelConfig: any,
+    runId: string,
+    seguimientoPedido = false,
+  ) {
     const credentials = {
       kind: modelConfig.provider.kind,
       apiKey: this.secrets.decrypt(modelConfig.provider.encryptedApiKey),
@@ -327,12 +365,18 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
       .filter((message) => message.content.length > 0);
     if (!messages.length) return { sent: false, toolsInvoked: [], lastSeenMessageId };
 
-    const system = buildSystemPrompt({
-      organization: conversation.organization,
-      agent,
-      lead: conversation.lead,
-      summary: conversation.summary,
-    });
+    // La marca puede haber quedado obsoleta: el `jobId` es la conversación, así
+    // que un mensaje que llegó entre encolar y procesar comparte trabajo con el
+    // seguimiento. Si el prospecto ya escribió, esto es una respuesta normal.
+    const esSeguimiento = seguimientoPedido && history[0]?.direction !== 'INBOUND';
+
+    const system =
+      buildSystemPrompt({
+        organization: conversation.organization,
+        agent,
+        lead: conversation.lead,
+        summary: conversation.summary,
+      }) + (esSeguimiento ? FOLLOW_UP_INSTRUCTIONS : '');
 
     const toolsInvoked: string[] = [];
     const recommended = new Set<string>();
@@ -372,6 +416,14 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
 
     const text = result?.text?.trim();
     if (!text) return { sent: false, toolsInvoked, promptTokens, completionTokens, lastSeenMessageId };
+
+    // El agente puede negarse a insistir. Es deliberado: un seguimiento que no
+    // aporta nada se siente como spam, y quien mejor puede juzgarlo es quien
+    // acaba de leer la conversación completa.
+    if (esSeguimiento && text.toUpperCase().includes(NO_INSISTIR)) {
+      this.log.log(`Seguimiento descartado por el agente en la conversación ${conversation.id}`);
+      return { sent: false, toolsInvoked, promptTokens, completionTokens, lastSeenMessageId };
+    }
 
     // Revalidar justo antes de enviar: un humano pudo tomar la conversación
     // mientras el modelo generaba (spec §15).

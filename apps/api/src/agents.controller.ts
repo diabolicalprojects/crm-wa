@@ -12,7 +12,8 @@ import {
   Put,
 } from '@nestjs/common';
 import { AgentStatus, OperationMode, Prisma } from '@prisma/client';
-import { IsBoolean, IsEnum, IsObject, IsOptional, IsString, Length } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsEnum, IsInt, IsObject, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from './auth';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
@@ -31,6 +32,15 @@ class AgentBaseDto {
   @IsOptional() @IsString() modelConfigId?: string;
   @IsOptional() @IsObject() businessHours?: Record<string, unknown>;
   @IsOptional() @IsObject() handoffRules?: Record<string, unknown>;
+
+  /**
+   * Seguimiento proactivo. Los topes no son validación defensiva: menos de dos
+   * horas no es un seguimiento sino insistencia, y más de cinco intentos es
+   * acoso — y a WhatsApp le consta.
+   */
+  @IsOptional() @IsBoolean() followUpEnabled?: boolean;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(2) @Max(720) followUpDelayHours?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(5) followUpMaxAttempts?: number;
 }
 
 class CreateAgentDto extends AgentBaseDto {
@@ -83,6 +93,9 @@ export class AgentsController {
           operationMode: dto.operationMode ?? 'HYBRID',
           businessHours: dto.businessHours as Prisma.InputJsonValue | undefined,
           handoffRules: dto.handoffRules as Prisma.InputJsonValue | undefined,
+          followUpEnabled: dto.followUpEnabled,
+          followUpDelayHours: dto.followUpDelayHours,
+          followUpMaxAttempts: dto.followUpMaxAttempts,
         },
         include: { responsibleUser: { select: { id: true, name: true, email: true } } },
       });
@@ -110,6 +123,9 @@ export class AgentsController {
         ...dto,
         businessHours: dto.businessHours as Prisma.InputJsonValue | undefined,
         handoffRules: dto.handoffRules as Prisma.InputJsonValue | undefined,
+        followUpEnabled: dto.followUpEnabled,
+        followUpDelayHours: dto.followUpDelayHours,
+        followUpMaxAttempts: dto.followUpMaxAttempts,
       },
     });
   }
