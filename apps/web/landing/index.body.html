@@ -1,0 +1,744 @@
+<title>Horizonte CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+/* ===========================================================================
+   Horizonte — página pública
+   El sistema de color extiende el de la consola (verde petróleo sobre papel
+   frío) en vez de inventar una identidad aparte: la landing y el producto
+   deben sentirse la misma cosa. El latón está reservado a una sola función:
+   las horas. Es el hilo que estructura la página.
+   =========================================================================== */
+
+:root {
+  --paper:      #F1F3F1;
+  --paper-2:    #E5E9E6;
+  --surface:    #FFFFFF;
+  --ink:        #0E1A18;
+  --ink-2:      #46564F;
+  --ink-3:      #6F7F78;
+  --line:       #D5DBD6;
+  --line-2:     #BCC5BE;
+
+  --accent:     #0E6E62;
+  --accent-2:   #0A554B;
+  --accent-soft:#DFEEEA;
+  --accent-line:#A9D2C9;
+
+  --brass:      #8F6614;
+  --brass-soft: #F0E7D2;
+
+  --ok:         #1B6B4A;
+  --ok-soft:    #E0EFE7;
+
+  --shadow: 0 1px 2px rgba(14, 26, 24, .05), 0 14px 34px -22px rgba(14, 26, 24, .45);
+
+  --rail: 108px;
+  --measure: 63ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #0B120F;
+    --paper-2:    #121B18;
+    --surface:    #141E1B;
+    --ink:        #E9EFEB;
+    --ink-2:      #AEBDB6;
+    --ink-3:      #82918B;
+    --line:       #263330;
+    --line-2:     #374742;
+
+    --accent:     #4FC0AA;
+    --accent-2:   #6BD3BE;
+    --accent-soft:#10302A;
+    --accent-line:#1E4B43;
+
+    --brass:      #D6AC5C;
+    --brass-soft: #2B2314;
+
+    --ok:         #58C593;
+    --ok-soft:    #102E22;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 40px -24px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      #0B120F;
+  --paper-2:    #121B18;
+  --surface:    #141E1B;
+  --ink:        #E9EFEB;
+  --ink-2:      #AEBDB6;
+  --ink-3:      #82918B;
+  --line:       #263330;
+  --line-2:     #374742;
+
+  --accent:     #4FC0AA;
+  --accent-2:   #6BD3BE;
+  --accent-soft:#10302A;
+  --accent-line:#1E4B43;
+
+  --brass:      #D6AC5C;
+  --brass-soft: #2B2314;
+
+  --ok:         #58C593;
+  --ok-soft:    #102E22;
+
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 40px -24px rgba(0,0,0,.9);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  text-wrap: balance;
+  letter-spacing: -.025em;
+  font-variation-settings: "wdth" 105;
+}
+p { margin: 0; max-width: var(--measure); }
+a { color: var(--accent); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell { max-width: 1160px; margin: 0 auto; padding: 0 28px 0; }
+
+/* ------------------------------------------------------------------ cintillo */
+
+.topline {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 22px 0 0;
+}
+.wordmark { display: flex; align-items: center; gap: 10px; }
+.wordmark .glyph {
+  width: 30px; height: 30px; flex: none;
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--paper);
+  font-family: "Archivo", sans-serif; font-weight: 800; font-size: 15px;
+  font-variation-settings: "wdth" 90;
+}
+.wordmark b {
+  font-family: "Archivo", sans-serif; font-weight: 700; font-size: 16.5px;
+  letter-spacing: -.02em; font-variation-settings: "wdth" 100;
+}
+.topline .spacer { margin-left: auto; }
+.topline .where {
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
+}
+
+/* --------------------------------------------------------------------- hero */
+
+.hero {
+  display: grid; gap: 44px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 46px 0 60px;
+  border-bottom: 1px solid var(--line-2);
+}
+@media (min-width: 940px) {
+  .hero { grid-template-columns: minmax(0, 1.06fr) minmax(0, .94fr); gap: 60px; align-items: start; padding: 66px 0 76px; }
+}
+
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 22px;
+}
+.eyebrow b { color: var(--accent); font-weight: 500; }
+
+h1 {
+  font-size: clamp(2.15rem, 5.1vw, 3.55rem);
+  line-height: 1.03;
+  font-weight: 800;
+  font-variation-settings: "wdth" 108;
+}
+h1 em {
+  font-style: normal;
+  color: var(--brass);
+  font-variation-settings: "wdth" 118;
+}
+
+.lede {
+  margin-top: 22px; font-size: 1.09rem; color: var(--ink-2);
+}
+.lede strong { color: var(--ink); font-weight: 600; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 30px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 12px 21px;
+  font-size: 15px; font-weight: 600; text-decoration: none;
+  border: 1px solid transparent;
+  transition: background .14s, border-color .14s, color .14s;
+}
+.btn-main { background: var(--accent); color: var(--paper); }
+.btn-main:hover { background: var(--accent-2); }
+.btn-ghost { border-color: var(--line-2); color: var(--ink); background: var(--surface); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn svg { flex: none; }
+
+.hero-foot {
+  margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 8px 26px;
+  font-size: 13px; color: var(--ink-3);
+}
+.hero-foot span { display: flex; align-items: center; gap: 7px; }
+.hero-foot span::before {
+  content: ""; width: 5px; height: 5px; background: var(--accent); flex: none;
+}
+
+/* ------------------------------------------------------------------- el hilo */
+
+.thread {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+}
+.thread-head {
+  display: flex; align-items: center; gap: 11px;
+  padding: 13px 16px; border-bottom: 1px solid var(--line);
+  background: var(--paper-2);
+}
+.thread-head .dot {
+  width: 30px; height: 30px; flex: none; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 11.5px; font-weight: 700; border-radius: 50%;
+}
+.thread-head b { display: block; font-size: 13.5px; font-weight: 600; }
+.thread-head small { display: block; font-size: 11.5px; color: var(--ink-3); }
+.thread-head .live {
+  margin-left: auto; font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ok); display: flex; align-items: center; gap: 6px;
+}
+.thread-head .live::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+.thread-body {
+  padding: 16px; display: flex; flex-direction: column; gap: 9px;
+  background: var(--paper);
+}
+.bubble {
+  max-width: 84%; padding: 9px 13px; font-size: 13.7px; line-height: 1.5;
+}
+.bubble time {
+  display: block; font-size: 10px; opacity: .72; margin-top: 4px;
+  font-family: "IBM Plex Mono", monospace;
+}
+.bubble .who {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  opacity: .8; margin-bottom: 3px;
+}
+.b-in {
+  align-self: flex-start; background: var(--surface);
+  border: 1px solid var(--line); border-bottom-left-radius: 0;
+  border-radius: 12px 12px 12px 0;
+}
+.b-ai {
+  align-self: flex-end; background: var(--accent); color: #F4FBF9;
+  border-radius: 12px 12px 0 12px;
+}
+.b-note {
+  align-self: center; text-align: center; max-width: 96%;
+  background: var(--brass-soft); color: var(--brass);
+  font-size: 11.5px; padding: 7px 14px; border-radius: 999px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+/* ---------------------------------------------------------- carril de tiempo */
+
+.line-section {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: 0 34px;
+  padding: 40px 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 860px) {
+  .line-section { grid-template-columns: var(--rail) minmax(0, 1fr); padding: 52px 0; }
+}
+
+.stamp {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px; color: var(--brass);
+  letter-spacing: .02em;
+  margin-bottom: 14px;
+  display: flex; align-items: baseline; gap: 9px;
+}
+.stamp .day {
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3);
+}
+@media (min-width: 860px) {
+  .stamp {
+    flex-direction: column; gap: 3px; margin-bottom: 0;
+    position: sticky; top: 26px;
+    padding-top: .42em;
+  }
+  /* El filete del carril: continúa la línea de tiempo entre secciones. */
+  .line-section { position: relative; }
+  .line-section::before {
+    content: ""; position: absolute;
+    left: calc(var(--rail) - 17px); top: 0; bottom: -1px;
+    width: 1px; background: var(--line);
+  }
+  .line-section::after {
+    content: ""; position: absolute;
+    left: calc(var(--rail) - 20px); top: 58px;
+    width: 7px; height: 7px; background: var(--brass);
+    border: 2px solid var(--paper);
+  }
+}
+
+h2 {
+  font-size: clamp(1.42rem, 3vw, 1.95rem);
+  line-height: 1.13; font-weight: 700;
+  font-variation-settings: "wdth" 103;
+}
+.line-section > div > p { margin-top: 13px; color: var(--ink-2); font-size: 1.02rem; }
+.line-section > div > p + p { margin-top: 11px; }
+.line-section p strong { color: var(--ink); font-weight: 600; }
+
+/* -------------------------------------------------------------- la garantía */
+
+.guarantee {
+  margin-top: 26px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  padding: 22px 24px;
+  max-width: 68ch;
+}
+.guarantee h3 {
+  font-size: 1.08rem; font-weight: 700; color: var(--accent);
+  font-variation-settings: "wdth" 100;
+}
+.guarantee p { margin-top: 9px; color: var(--ink-2); font-size: .96rem; max-width: none; }
+.guarantee p strong { color: var(--ink); }
+
+/* --------------------------------------------------------------- comparativa */
+
+.split {
+  margin-top: 24px; display: grid; gap: 1px;
+  background: var(--line); border: 1px solid var(--line);
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 700px) { .split { grid-template-columns: 1fr 1fr; } }
+.split > div { background: var(--surface); padding: 18px 20px; }
+.split .k {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 7px;
+}
+.split p { font-size: .95rem; color: var(--ink-2); max-width: none; }
+.split .yes .k { color: var(--accent); }
+.split .yes p strong { color: var(--ink); }
+
+/* -------------------------------------------------------------- capacidades */
+
+.grid-caps {
+  display: grid; gap: 1px; background: var(--line);
+  border: 1px solid var(--line); margin-top: 26px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 640px) { .grid-caps { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1000px) { .grid-caps { grid-template-columns: repeat(3, 1fr); } }
+.cap { background: var(--surface); padding: 20px; display: flex; flex-direction: column; gap: 7px; }
+.cap h3 { font-size: 1rem; font-weight: 700; font-variation-settings: "wdth" 100; }
+.cap p { font-size: .91rem; color: var(--ink-2); max-width: none; }
+.cap .ix { color: var(--accent); }
+
+/* ------------------------------------------------------------------ honestos */
+
+.ledger { margin-top: 22px; border-top: 1px solid var(--line-2); }
+.ledger-row {
+  display: grid; gap: 4px 22px; grid-template-columns: minmax(0, 1fr);
+  padding: 15px 0; border-bottom: 1px solid var(--line);
+  align-items: baseline;
+}
+@media (min-width: 700px) { .ledger-row { grid-template-columns: 128px minmax(0, 1fr); } }
+.ledger-row .tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+}
+.tag-soon { color: var(--brass); }
+.tag-no   { color: var(--ink-3); }
+.ledger-row p { font-size: .96rem; color: var(--ink-2); max-width: none; }
+.ledger-row b { color: var(--ink); font-weight: 600; }
+
+/* --------------------------------------------------------------------- cierre */
+
+.closer {
+  margin: 0 0 74px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 38px 32px;
+  display: grid; gap: 26px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 860px) {
+  .closer { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 46px; align-items: center; padding: 46px 44px; }
+}
+.closer h2 { font-size: clamp(1.5rem, 3.2vw, 2.1rem); }
+.closer p { margin-top: 12px; color: var(--ink-2); }
+.closer .price-shape {
+  border-left: 2px solid var(--accent);
+  padding-left: 18px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.closer .price-shape .row { display: flex; flex-direction: column; gap: 1px; }
+.closer .price-shape .lbl {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3);
+}
+.closer .price-shape .val { font-size: .96rem; color: var(--ink-2); }
+.closer .price-shape .val b { color: var(--ink); font-weight: 600; }
+
+footer {
+  border-top: 1px solid var(--line-2);
+  padding: 26px 0 40px;
+  display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center;
+  font-size: 12.5px; color: var(--ink-3);
+}
+footer .spacer { margin-left: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="shell">
+
+  <div class="topline">
+    <span class="wordmark"><span class="glyph">H</span><b>Horizonte</b></span>
+    <span class="spacer"></span>
+    <span class="where mono">Aguascalientes · México</span>
+  </div>
+
+  <!-- ================================================================ hero -->
+  <header class="hero">
+    <div>
+      <div class="eyebrow">CRM conversacional · <b>Agentes de IA sobre WhatsApp</b></div>
+
+      <h1>Son las <em>11:47</em> de la noche y alguien pregunta por la casa de Villa&nbsp;Sur.</h1>
+
+      <p class="lede">
+        Tu equipo duerme. La conversación no espera. Horizonte pone un agente de IA
+        en el WhatsApp de tu inmobiliaria que contesta <strong>con tu inventario
+        real</strong> —el precio que sí es, las recámaras que sí tiene—, se queda con
+        lo que busca la persona y deja la visita puesta para el sábado.
+        Mañana tú lees el resumen.
+      </p>
+
+      <div class="actions">
+        <a class="btn btn-main" href="https://agentesia.diabolicalservices.tech">
+          Entrar a la consola
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="#llega">Ver cómo trabaja</a>
+      </div>
+
+      <div class="hero-foot">
+        <span>Responde en segundos, a cualquier hora</span>
+        <span>No inventa propiedades</span>
+        <span>Tu asesor toma el control cuando quiera</span>
+      </div>
+    </div>
+
+    <!-- El hilo no es una ilustración: es lo que el producto hace, con el
+         inventario de la agencia demo. -->
+    <div class="thread" aria-label="Conversación de ejemplo">
+      <div class="thread-head">
+        <span class="dot">MR</span>
+        <span>
+          <b>María Fernanda Ríos</b>
+          <small>+52 449 118 2244 · por el número de la agencia</small>
+        </span>
+        <span class="live">IA activa</span>
+      </div>
+      <div class="thread-body">
+        <div class="bubble b-in">
+          Buenas noches, vi la casa de Villa Sur en el anuncio. ¿Todavía está disponible?
+          <time>23:47</time>
+        </div>
+        <div class="bubble b-ai">
+          <div class="who">Andrea · asesora</div>
+          Buenas noches. Sí, sigue disponible: 3 recámaras, 180 m² de construcción, en
+          Villa Sur, Aguascalientes. $4,250,000. ¿Le gustaría verla esta semana?
+          <time>23:47</time>
+        </div>
+        <div class="bubble b-in">
+          Sí me interesa. ¿Tienen algo parecido pero más cerca del centro?
+          <time>23:48</time>
+        </div>
+        <div class="bubble b-ai">
+          <div class="who">Andrea · asesora</div>
+          Tengo dos: Jardines del Parque, 3 rec, 165 m², $3,980,000; y Colonia del
+          Trabajo, 3 rec, 172 m², $4,100,000. ¿Cuál le late para el sábado?
+          <time>23:48</time>
+        </div>
+        <div class="bubble b-in">
+          El de Jardines. El sábado a las 11 me queda bien.
+          <time>23:52</time>
+        </div>
+        <div class="bubble b-note">
+          Visita solicitada · pendiente de que Andrea la confirme
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================== 23:47 -->
+  <section class="line-section" id="llega">
+    <div class="stamp"><span>23:47</span><span class="day">Domingo</span></div>
+    <div>
+      <h2>El lead más caro es el que no contestaste</h2>
+      <p>
+        Pagaste el anuncio del portal. Pagaste el clic. Y el mensaje entró a las once
+        de la noche de un domingo, mientras tu asesor cenaba con su familia.
+      </p>
+      <p>
+        Para cuando alguien lo lee, esa persona ya escribió a otras tres inmobiliarias
+        y una le contestó. <strong>No perdiste la venta por precio: la perdiste por
+        hora.</strong> Y el reporte de fin de mes te va a decir que el portal no
+        funciona, cuando lo que no funcionó fue el turno de la noche.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================== 23:47 -->
+  <section class="line-section">
+    <div class="stamp"><span>23:47</span><span class="day">+ 12 seg</span></div>
+    <div>
+      <h2>Contesta con tu inventario, no con adjetivos</h2>
+      <p>
+        El agente no improvisa. Consulta las propiedades que tú cargaste y responde con
+        el precio, la superficie y la colonia que están en tu sistema. Si no hay nada
+        que encaje, lo dice y pregunta qué criterio se puede mover, en vez de ofrecer
+        cualquier cosa por no quedarse callado.
+      </p>
+
+      <div class="guarantee">
+        <h3>Nunca menciona una propiedad que no existe</h3>
+        <p>
+          Todo lo que el agente afirma sobre un inmueble sale de una consulta a tu
+          inventario ejecutada <strong>en esa misma conversación</strong>. No puede
+          citar un precio que no cargaste, prometer una amenidad que no capturaste ni
+          inventar una colonia.
+        </p>
+        <p>
+          No es una advertencia escrita en un prompt y esperar que la obedezca:
+          <strong>es que no tiene ninguna otra forma de obtener el dato.</strong>
+          Y cada consulta queda registrada, así que se puede revisar después.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== 23:49 -->
+  <section class="line-section">
+    <div class="stamp"><span>23:49</span><span class="day">+ 2 min</span></div>
+    <div>
+      <h2>Se queda con lo que dijo la persona</h2>
+      <p>
+        Presupuesto, zona, recámaras, si vende primero o compra directo, cuándo puede
+        ver. El agente lo captura conforme sale en la plática y lo guarda en la ficha
+        del prospecto, con una calificación y el motivo de esa calificación.
+      </p>
+      <p>
+        A la mañana siguiente tu asesor no abre una conversación: abre una ficha que ya
+        dice quién es esta persona y qué busca.
+      </p>
+
+      <div class="split">
+        <div>
+          <div class="k">Sin esto</div>
+          <p>Tres semanas de conversaciones en el teléfono de un asesor. El día que se va, se va con ellas.</p>
+        </div>
+        <div class="yes">
+          <div class="k">Con Horizonte</div>
+          <p><strong>La relación con el cliente vive en la empresa</strong>, no en el celular de quien contestó.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== 23:52 -->
+  <section class="line-section">
+    <div class="stamp"><span>23:52</span><span class="day">+ 5 min</span></div>
+    <div>
+      <h2>Deja la visita puesta, no prometida</h2>
+      <p>
+        El agente registra la solicitud con día y hora. Tu asesor la confirma con un
+        toque y aparece en su Google Calendar, con la propiedad, el teléfono y el
+        resumen de lo que se habló.
+      </p>
+      <p>
+        Mientras nadie la confirme, el prospecto ve «por confirmar» y el calendario
+        también lo dice. <strong>Ninguna cita se da por hecha sin que una persona lo
+        diga</strong> — porque una cita inventada cuesta más que un lead perdido.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================== 08:10 -->
+  <section class="line-section">
+    <div class="stamp"><span>08:10</span><span class="day">Lunes</span></div>
+    <div>
+      <h2>Tu asesor contesta desde su teléfono. El CRM se entera.</h2>
+      <p>
+        Andrea abre WhatsApp como cualquier mañana y responde ella misma. No entra a la
+        consola, no aprieta ningún botón, no cambia su forma de trabajar.
+      </p>
+      <p>
+        Horizonte lo detecta, <strong>pausa al agente en esa conversación</strong> y no
+        vuelve a escribir encima de ella hasta que alguien devuelva el control a
+        propósito. Es un detalle pequeño y es exactamente lo que decide si un equipo
+        adopta la herramienta o le da la vuelta.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ sábado -->
+  <section class="line-section">
+    <div class="stamp"><span>11:00</span><span class="day">Sábado</span></div>
+    <div>
+      <h2>Y llegas a la visita habiendo leído la conversación</h2>
+      <p>
+        No un «hola, ¿en qué le puedo ayudar?». Llegas sabiendo que busca hasta $4 M,
+        que le importa el centro, que vio dos opciones y prefirió Jardines, y que el
+        sábado es su único día libre.
+      </p>
+      <p>
+        La conversación completa —lo que contestó la IA y lo que contestó tu asesor—
+        está en un solo hilo, y cuando la ventana se hace larga el sistema conserva un
+        resumen que distingue lo que la persona confirmó de lo que solo se supuso.
+      </p>
+    </div>
+  </section>
+
+  <!-- ======================================================= vista del dueño -->
+  <section class="line-section">
+    <div class="stamp"><span class="day">Y además</span></div>
+    <div>
+      <h2>Lo que ve el dueño</h2>
+      <p>
+        La parte que no aparece en la demo bonita y es la que decide la compra.
+      </p>
+
+      <div class="grid-caps">
+        <div class="cap">
+          <h3><span class="ix">·</span> Cada agencia, aislada</h3>
+          <p>Los datos de una agencia no se cruzan con los de otra. No es una vista filtrada: es una barrera verificada en el servidor en cada consulta.</p>
+        </div>
+        <div class="cap">
+          <h3><span class="ix">·</span> Quién ve qué</h3>
+          <p>Propietario, administrador y supervisor ven toda la agencia. El asesor ve lo suyo. Se comprueba en el servidor: esconder un botón no es un permiso.</p>
+        </div>
+        <div class="cap">
+          <h3><span class="ix">·</span> Bitácora de lo sensible</h3>
+          <p>Quién tomó una conversación, quién la devolvió a la IA, quién movió un registro y cuándo.</p>
+        </div>
+        <div class="cap">
+          <h3><span class="ix">·</span> Salud y consumo</h3>
+          <p>Si un número se cayó, si la IA está fallando y por qué, cuántos mensajes entraron y cuánto se consumió. Sin pedirle nada a nadie.</p>
+        </div>
+        <div class="cap">
+          <h3><span class="ix">·</span> Tú eliges el motor</h3>
+          <p>Anthropic, OpenAI o Google, con el modelo que prefieras. La credencial se guarda cifrada y nunca regresa al navegador.</p>
+        </div>
+        <div class="cap">
+          <h3><span class="ix">·</span> La bandeja, en vivo</h3>
+          <p>Los mensajes aparecen conforme llegan, en el escritorio y en el teléfono. Sin recargar, sin esperar el siguiente sondeo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================================== honesto -->
+  <section class="line-section">
+    <div class="stamp"><span class="day">Sin letra chica</span></div>
+    <div>
+      <h2>Lo que todavía no hace</h2>
+      <p>
+        Preferimos que lo sepas antes de la demo y no después de la firma.
+      </p>
+
+      <div class="ledger">
+        <div class="ledger-row">
+          <span class="tag tag-soon mono">En camino</span>
+          <p><b>Fotos y audios.</b> Hoy la conversación es de texto. Recibir y mandar imágenes es lo siguiente que estamos construyendo.</p>
+        </div>
+        <div class="ledger-row">
+          <span class="tag tag-soon mono">En camino</span>
+          <p><b>Seguimiento proactivo.</b> Que la IA vuelva a escribir sola a los dos días, sin que nadie se acuerde. Es la pieza en la que más estamos invirtiendo.</p>
+        </div>
+        <div class="ledger-row">
+          <span class="tag tag-no mono">No lo hace</span>
+          <p><b>Publicar en portales.</b> Horizonte atiende la conversación; no administra tus anuncios de Inmuebles24 ni de MercadoLibre.</p>
+        </div>
+        <div class="ledger-row">
+          <span class="tag tag-no mono">No lo hace</span>
+          <p><b>Prestarte inventario de otras agencias.</b> No tenemos una bolsa compartida de terceros y no vamos a fingir que sí. Horizonte trabaja con tu catálogo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ cierre -->
+  <section class="closer" id="demo">
+    <div>
+      <h2>Conecta tu número y ve qué contesta</h2>
+      <p>
+        La forma corta de decidir es cargar veinte propiedades, escanear un QR con el
+        WhatsApp de la agencia y mandarle un mensaje tú mismo, como si fueras el
+        prospecto. En quince minutos sabes si esto sirve para tu operación.
+      </p>
+      <div class="actions">
+        <a class="btn btn-main" href="https://agentesia.diabolicalservices.tech">
+          Entrar a la consola
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="price-shape">
+      <div class="row">
+        <span class="lbl">Se cobra por</span>
+        <span class="val"><b>Número de WhatsApp conectado</b> y asesores con acceso.</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Sin costo por</span>
+        <span class="val">Propiedades cargadas, prospectos ni conversaciones.</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Motor de IA</span>
+        <span class="val">Con tu propia credencial: pagas el consumo directo al proveedor, sin intermediario.</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="wordmark"><span class="glyph">H</span><b>Horizonte</b></span>
+    <span class="spacer"></span>
+    <span class="mono">CRM conversacional para inmobiliarias</span>
+  </footer>
+
+</div>
