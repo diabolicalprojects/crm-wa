@@ -52,10 +52,27 @@ export interface SendMediaInput {
   providerSessionId: string;
   chatId: string;
   kind: MediaKind;
-  /** URL accesible por OpenWA o data URL, según lo que acepte el motor. */
-  media: string;
+  /**
+   * Los bytes en base64. Se envía así y no por URL a propósito: un envío por
+   * URL hace que la pasarela descargue en el momento y **no guarde nada**, así
+   * que el archivo deja de poder recuperarse después por la ruta de blob.
+   */
+  base64: string;
+  /** Obligatorio junto con `base64`; sin él la pasarela responde 400. */
+  mimeType: string;
   caption?: string;
   filename?: string;
+}
+
+export interface FetchMediaInput {
+  providerSessionId: string;
+  chatId: string;
+  providerMessageId: string;
+}
+
+export interface FetchedMedia {
+  bytes: Buffer;
+  mimeType: string;
 }
 
 export interface ConfigureWebhookInput {
@@ -79,6 +96,7 @@ export interface WhatsAppGateway {
   getStatus(providerSessionId: string): Promise<ProviderSession>;
   sendText(input: SendTextInput): Promise<ProviderMessage>;
   sendMedia(input: SendMediaInput): Promise<ProviderMessage>;
+  fetchMedia(input: FetchMediaInput): Promise<FetchedMedia>;
   configureWebhook(input: ConfigureWebhookInput): Promise<ProviderWebhook>;
   listWebhooks(providerSessionId: string): Promise<ProviderWebhook[]>;
   deleteWebhook(providerSessionId: string, webhookId: string): Promise<void>;
@@ -260,13 +278,69 @@ export class OpenWaGateway implements WhatsAppGateway {
         method: 'POST',
         body: JSON.stringify({
           chatId: input.chatId,
-          media: input.media,
-          caption: input.caption,
-          filename: input.filename,
+          base64: input.base64,
+          mimetype: input.mimeType,
+          ...(input.caption ? { caption: input.caption } : {}),
+          ...(input.filename ? { filename: input.filename } : {}),
         }),
       },
     );
     return this.toMessage(raw);
+  }
+
+  /**
+   * Recupera los bytes de un mensaje. Hace falta porque el webhook no incluye
+   * los blobs mayores a 1 MiB: llegan como `{ mimetype, omitted: true }` y hay
+   * que venir por ellos.
+   *
+   * La ruta lleva **chatId y messageId**, no messageId y mediaId. Verificado
+   * contra `docs/06-api-specification.md` del proyecto fuente; el contrato que
+   * teníamos escrito estaba equivocado y habría dado 404 siempre.
+   */
+  async fetchMedia(input: FetchMediaInput): Promise<FetchedMedia> {
+    const path =
+      `/sessions/${encodeURIComponent(input.providerSessionId)}` +
+      `/messages/${encodeURIComponent(input.chatId)}` +
+      `/${encodeURIComponent(input.providerMessageId)}/media`;
+    // La respuesta son bytes crudos, no JSON: no puede pasar por `request`.
+    const response = await this.raw(path);
+    return {
+      bytes: Buffer.from(await response.arrayBuffer()),
+      mimeType: response.headers.get('content-type') ?? 'application/octet-stream',
+    };
+  }
+
+  private async raw(path: string): Promise<Response> {
+    if (!this.baseUrl) throw new ServiceUnavailableException('OPENWA_BASE_URL no configurado');
+    const apiKey = process.env.OPENWA_API_KEY;
+    if (!apiKey) throw new ServiceUnavailableException('OPENWA_API_KEY no configurado');
+
+    const timeout = Number(process.env.OPENWA_MEDIA_TIMEOUT_MS ?? 30000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        signal: controller.signal,
+        headers: { 'X-API-Key': apiKey },
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new ServiceUnavailableException(
+          this.safeMessage(detail) ?? `OpenWA respondió ${response.status}`,
+        );
+      }
+      return response;
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) throw error;
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ServiceUnavailableException(`OpenWA no respondió en ${timeout} ms`);
+      }
+      throw new ServiceUnavailableException(
+        error instanceof Error ? error.message : 'OpenWA no disponible',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private toMessage(raw: any): ProviderMessage {

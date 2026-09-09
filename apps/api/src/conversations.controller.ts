@@ -110,7 +110,12 @@ export class ConversationsController {
     const take = query.take ?? 100;
     return this.db.message.findMany({
       where: { conversationId: id, organizationId },
-      include: { sender: { select: { id: true, name: true } } },
+      include: {
+        sender: { select: { id: true, name: true } },
+        // El estado del archivo importa: «pendiente» y «no se pudo» se ven
+        // igual sin él, y en una conversación no son lo mismo.
+        media: { select: { id: true, mimeType: true, sizeBytes: true, status: true, originalFilename: true } },
+      },
       orderBy: { createdAt: 'asc' },
       take,
     });

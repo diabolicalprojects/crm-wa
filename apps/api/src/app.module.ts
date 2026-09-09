@@ -19,6 +19,9 @@ import { EventsService } from './events.service';
 import { HealthController } from './health.controller';
 import { ImportsController } from './imports.controller';
 import { LeadsController } from './leads.controller';
+import { MediaController } from './media.controller';
+import { MediaFetchService } from './media-fetch.service';
+import { MediaStorageService } from './media-storage.service';
 import { OpenWaGateway } from './openwa.gateway';
 import { OpenWaIngestService } from './openwa-ingest.service';
 import { OpenWaWebhookController } from './openwa-webhook.controller';
@@ -48,6 +51,7 @@ import { WhatsappController } from './whatsapp.controller';
     PropertiesController,
     LeadsController,
     ConversationsController,
+    MediaController,
     OpenWaWebhookController,
   ],
   providers: [
@@ -57,6 +61,8 @@ import { WhatsappController } from './whatsapp.controller';
     AuthService,
     OpenWaGateway,
     OpenWaIngestService,
+    MediaStorageService,
+    MediaFetchService,
     AiGateway,
     AiToolsService,
     AutomationService,

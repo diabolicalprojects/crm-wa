@@ -19,6 +19,9 @@ import { Observable } from 'rxjs';
 
 export type LiveEvent =
   | { type: 'message.created'; conversationId: string; leadId: string }
+  // Un mensaje ya visible cambió: hoy solo cuando llega el archivo que
+  // el webhook no traía. La bandeja lo usa para recargar ese hilo.
+  | { type: 'message.updated'; conversationId: string }
   | { type: 'conversation.updated'; conversationId: string; mode?: string; status?: string }
   | { type: 'session.updated'; sessionId: string; status: string }
   | { type: 'ping' };

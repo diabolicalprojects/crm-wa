@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Avatar, Badge, Banner, Button, Empty, Icon, PageHeader, Skeleton, useToast } from '../components/ui';
+import { Media } from '../components/media';
 import { request, requestList } from '../lib/api';
 import { useLiveEvents } from '../lib/live';
 import type { User } from './auth';
@@ -28,6 +29,7 @@ export function Conversations({ user }: { user: User }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const bottom = useRef<HTMLDivElement>(null);
+  const archivo = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -108,6 +110,26 @@ export function Conversations({ user }: { user: User }) {
       await Promise.all([loadThread(selectedId), load()]);
     } catch (problem) {
       toast(problem instanceof Error ? problem.message : 'No se pudo enviar', 'error');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function enviarArchivo(input: HTMLInputElement) {
+    const elegido = input.files?.[0];
+    // Se limpia siempre: sin esto, volver a elegir el mismo archivo no dispara
+    // el evento y parece que el botón dejó de funcionar.
+    input.value = '';
+    if (!elegido) return;
+
+    setSending(true);
+    try {
+      const cuerpo = new FormData();
+      cuerpo.append('file', elegido);
+      await request(`/conversations/${selectedId}/media`, { method: 'POST', body: cuerpo });
+      await Promise.all([loadThread(selectedId), load()]);
+    } catch (problem) {
+      toast(problem instanceof Error ? problem.message : 'No se pudo enviar el archivo', 'error');
     } finally {
       setSending(false);
     }
@@ -280,7 +302,11 @@ export function Conversations({ user }: { user: User }) {
                             {message.origin === 'WHATSAPP_PHONE' ? ' · desde el teléfono' : ''}
                           </div>
                         )}
-                        {message.text || <em className="muted">Mensaje multimedia</em>}
+                        {message.media && <Media media={message.media} />}
+                        {message.text}
+                        {!message.text && !message.media && (
+                          <em className="muted">Mensaje sin contenido</em>
+                        )}
                         <time>{dateTime(message.createdAt)}</time>
                       </div>
                     );
@@ -289,7 +315,16 @@ export function Conversations({ user }: { user: User }) {
                 </div>
 
                 <div className="composer">
+                  <input
+                    ref={archivo} type="file" hidden
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={(event) => enviarArchivo(event.currentTarget)}
+                  />
                   <form onSubmit={send}>
+                    <Button
+                      type="button" icon="upload" title="Adjuntar archivo"
+                      disabled={sending} onClick={() => archivo.current?.click()}
+                    />
                     <input className="input" name="text" placeholder="Escribe un mensaje…" autoComplete="off" />
                     <Button type="submit" variant="primary" icon="send" disabled={sending} title="Enviar">
                       <span className="composer-label">{sending ? 'Enviando…' : 'Enviar'}</span>

@@ -65,6 +65,29 @@ export async function request<T = any>(path: string, options: RequestInit = {}):
   return response.status === 204 ? (null as T) : response.json();
 }
 
+/**
+ * Descarga un archivo protegido y devuelve una URL local para mostrarlo.
+ *
+ * Un `<img src="/media/...">` no puede llevar el token ni la agencia en
+ * encabezados, y ponerlos en la URL los dejaría en el historial y en los
+ * registros del servidor. Se baja con `fetch` autenticado y se envuelve en un
+ * blob local; quien lo use debe revocarlo al desmontar.
+ */
+export async function fetchBlobUrl(path: string): Promise<string> {
+  const jwt = token();
+  const organizationId = typeof window === 'undefined' ? '' : localStorage.getItem('crm_org') || '';
+  const response = await fetch(API + path, {
+    headers: {
+      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+      ...(organizationId ? { 'x-organization-id': organizationId } : {}),
+    },
+  });
+  if (!response.ok) {
+    throw new ApiError(apiErrorMessage(await response.text(), response.status), response.status);
+  }
+  return URL.createObjectURL(await response.blob());
+}
+
 /** Endpoints paginados devuelven `{items, nextCursor}`; el resto, un arreglo. */
 export async function requestList<T = any>(path: string): Promise<T[]> {
   const data = await request<T[] | { items: T[] }>(path);

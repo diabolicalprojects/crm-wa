@@ -71,7 +71,7 @@ Mapeo al enum `SessionStatus` del CRM:
 | `POST` | `/sessions/:id/messages/forward` | objeto |
 | `GET` | `/sessions/:id/messages?chatId=&limit=` | — |
 | `GET` | `/sessions/:id/messages/:chatId/history?limit=&includeMedia=true` | — |
-| `GET` | `/sessions/:id/messages/:messageId/:mediaId/media` | — → blob |
+| `GET` | `/sessions/:id/messages/:chatId/:messageId/media` | — → blob |
 | `GET` | `/sessions/:id/messages/batch/:batchId` | — |
 
 Tipos de mensaje que emite el proveedor:
@@ -181,11 +181,38 @@ realidad respondió la IA.
 
 ### Multimedia
 
+El objeto es `media: { mimetype, filename?, data?, omitted?, sizeBytes? }`, y
+`data` es el **base64** del archivo.
+
 Un blob mayor a `WEBHOOK_MEDIA_INLINE_MAX_BYTES` (1 MiB por defecto) no viaja en
 el payload; llega como `media: { mimetype, filename?, omitted: true, sizeBytes }`.
 Se recupera después con
 `GET /api/sessions/:id/messages/:chatId/history?includeMedia=true` o con la ruta
 de blob por mensaje.
+
+> **La ruta de blob lleva `chatId` y `messageId`, no `messageId` y `mediaId`.**
+> Este documento la tuvo mal hasta el 9 de septiembre de 2026 y habría devuelto
+> 404 siempre. Verificado contra `docs/06-api-specification.md` del proyecto
+> fuente. Responde 404 legítimo cuando el mensaje no trae media, cuando estaba
+> por encima de `MEDIA_DOWNLOAD_MAX_BYTES` al guardarse, o cuando fue un envío
+> por URL —de esos la pasarela no conserva bytes—.
+
+### Envío de multimedia
+
+Las rutas `send-{image|video|audio|voice|document|sticker}` comparten un DTO
+**plano**; no existe el envoltorio `{ image: { url } }`:
+
+| Campo | Obligatorio | Nota |
+| --- | --- | --- |
+| `chatId` | sí | `<phone>@c.us` o `<groupId>@g.us` |
+| `url` | uno de los dos | La pasarela descarga en el momento y **no conserva nada** |
+| `base64` | uno de los dos | Los bytes; se persisten, así que el archivo sigue recuperable |
+| `mimetype` | con `base64` | Sin él responde 400 |
+| `filename` | no | Máx. 255 |
+| `caption` | no | Máx. 1024, no se persiste en audio |
+
+Exactamente uno de `url` o `base64`. El CRM usa **`base64` siempre**: un envío
+por URL deja el archivo irrecuperable después.
 
 ## Otros recursos disponibles
 

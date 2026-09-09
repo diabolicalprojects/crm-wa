@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MessageType, Prisma, SessionStatus } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { AutomationService } from './automation.service';
+import { MediaStorageService } from './media-storage.service';
 import { EventsService } from './events.service';
 import { mapProviderStatus } from './openwa.gateway';
 
@@ -72,6 +73,7 @@ export class OpenWaIngestService {
     private db: PrismaService,
     private automation: AutomationService,
     private events: EventsService,
+    private media: MediaStorageService,
   ) {}
 
   async handle(envelope: OpenWaEnvelope): Promise<{ handled: boolean; reason?: string }> {
@@ -155,6 +157,8 @@ export class OpenWaIngestService {
       conversation.agentId = session.agentId;
     }
 
+    const mediaId = await this.absorbMedia(organizationId, data);
+
     const created = await this.createMessageOnce({
       organizationId,
       conversationId: conversation.id,
@@ -165,12 +169,16 @@ export class OpenWaIngestService {
       origin: 'WHATSAPP',
       type: mapMessageType(data.type),
       text: data.body ? String(data.body) : undefined,
+      mediaId,
       status: 'RECEIVED',
       providerTimestamp: toDate(data.timestamp),
       metadata: this.messageMetadata(data),
     });
 
-    if (!created) return { handled: true, reason: 'mensaje duplicado' };
+    if (!created) {
+      await this.discardOrphanMedia(mediaId);
+      return { handled: true, reason: 'mensaje duplicado' };
+    }
 
     const now = new Date();
     await this.db.conversation.update({
@@ -241,7 +249,8 @@ export class OpenWaIngestService {
       update: {},
     });
 
-    await this.createMessageOnce({
+    const mediaId = await this.absorbMedia(organizationId, data);
+    const created = await this.createMessageOnce({
       organizationId,
       conversationId: conversation.id,
       sessionId: session.id,
@@ -251,10 +260,12 @@ export class OpenWaIngestService {
       origin: 'WHATSAPP_PHONE',
       type: mapMessageType(data.type),
       text: data.body ? String(data.body) : undefined,
+      mediaId,
       status: 'SENT',
       providerTimestamp: toDate(data.timestamp),
       metadata: this.messageMetadata(data),
     });
+    if (!created) await this.discardOrphanMedia(mediaId);
 
     const now = new Date();
     await this.db.conversation.update({
@@ -408,6 +419,68 @@ export class OpenWaIngestService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Registra el archivo que viene con el mensaje.
+   *
+   * El contrato entrega el blob en línea (`media.data`, base64) solo hasta
+   * 1 MiB; por encima manda `{ mimetype, omitted: true, sizeBytes }` y hay que
+   * ir por él después. En ese caso se reserva el registro para que la
+   * conversación muestre «llegó una foto» de inmediato y el barrido complete
+   * los bytes: descargarlos aquí metería una descarga de megabytes dentro del
+   * ciclo del webhook, que debe responder rápido.
+   */
+  private async absorbMedia(
+    organizationId: string,
+    data: Record<string, any>,
+  ): Promise<string | undefined> {
+    const media = data.media;
+    if (!data.hasMedia && !media) return undefined;
+
+    const mimeType = String(media?.mimetype ?? '') || 'application/octet-stream';
+    const filename = media?.filename ? String(media.filename) : undefined;
+
+    try {
+      if (media?.data && !media?.omitted) {
+        const bytes = Buffer.from(String(media.data), 'base64');
+        const asset = await this.media.store({
+          organizationId,
+          bytes,
+          mimeType,
+          filename,
+          source: 'WHATSAPP',
+        });
+        return asset.id;
+      }
+      const reserved = await this.media.reserve({
+        organizationId,
+        mimeType,
+        filename,
+        sizeBytes: Number(media?.sizeBytes ?? 0),
+      });
+      return reserved.id;
+    } catch (error) {
+      // Un archivo que no se pudo guardar no debe costar el mensaje: el texto
+      // y el aviso de que hubo adjunto valen más que perder la conversación.
+      this.log.warn(
+        `No se pudo registrar la multimedia: ${error instanceof Error ? error.message : error}`,
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * La entrega es *at-least-once*: si el mensaje resultó duplicado, el archivo
+   * que acabamos de registrar no lo referencia nadie. Se borra solo si ningún
+   * mensaje lo usa, porque la deduplicación por SHA-256 puede haber devuelto
+   * uno que ya existía y sí está en uso.
+   */
+  private async discardOrphanMedia(mediaId?: string) {
+    if (!mediaId) return;
+    const usos = await this.db.message.count({ where: { mediaId } });
+    if (usos) return;
+    await this.db.mediaAsset.delete({ where: { id: mediaId } }).catch(() => undefined);
   }
 
   /** Metadata mínima: el contrato pide retención acotada (spec §11.9). */

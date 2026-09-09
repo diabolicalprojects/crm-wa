@@ -62,7 +62,10 @@ describe('ingesta de webhooks de OpenWA, de punta a punta', () => {
       auditLog: { create: vi.fn() },
     };
 
-    const ingest = new OpenWaIngestService(db, automation, events);
+    const ingest = new OpenWaIngestService(db, automation, events, {
+      store: vi.fn(),
+      reserve: vi.fn(),
+    } as any);
     controller = new OpenWaWebhookController(db, ingest);
   });
 

@@ -36,6 +36,39 @@ const HISTORY_WINDOW = 16;
 const SUMMARY_AFTER = HISTORY_WINDOW;
 const SUMMARY_EVERY = 10;
 
+/**
+ * Qué ve el modelo de un mensaje.
+ *
+ * Un mensaje que solo trae archivo no tiene texto, y filtrarlo dejaba a la IA
+ * sin nada que responder: mandar una foto sin pie equivalía a no escribir. Aquí
+ * se convierte en un aviso explícito de que llegó un archivo —nunca en una
+ * descripción de su contenido, porque el modelo no lo está viendo—. La regla
+ * que se lo prohíbe explícitamente vive en `PRODUCT_RULES`.
+ */
+export function describeForPrompt(message: {
+  text?: string | null;
+  type?: string | null;
+  direction?: string;
+}): string {
+  const texto = (message.text ?? '').trim();
+  const etiqueta = ADJUNTOS[String(message.type ?? '')];
+  if (!etiqueta) return texto;
+  const quien = message.direction === 'INBOUND' ? 'El prospecto' : 'El asesor';
+  return texto ? `${texto}
+[${quien} adjuntó ${etiqueta}]` : `[${quien} envió ${etiqueta}]`;
+}
+
+const ADJUNTOS: Record<string, string> = {
+  IMAGE: 'una imagen',
+  VIDEO: 'un video',
+  AUDIO: 'un audio',
+  VOICE: 'una nota de voz',
+  DOCUMENT: 'un documento',
+  STICKER: 'una calcomanía',
+  LOCATION: 'una ubicación',
+  CONTACT: 'un contacto',
+};
+
 @Injectable()
 export class AutomationService implements OnModuleInit, OnModuleDestroy {
   private connection?: IORedis;
@@ -287,11 +320,11 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     };
 
     const messages: AiMessage[] = history
-      .filter((message: any) => message.text)
       .map((message: any) => ({
         role: message.direction === 'INBOUND' ? ('user' as const) : ('assistant' as const),
-        content: message.text as string,
-      }));
+        content: describeForPrompt(message),
+      }))
+      .filter((message) => message.content.length > 0);
     if (!messages.length) return { sent: false, toolsInvoked: [], lastSeenMessageId };
 
     const system = buildSystemPrompt({
@@ -437,7 +470,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
 
     const transcripcion = previos
       .reverse()
-      .map((m) => `${m.direction === 'INBOUND' ? 'Prospecto' : m.senderType === 'AI' ? 'Agente' : 'Asesor'}: ${m.text}`)
+      .map((m) => `${m.direction === 'INBOUND' ? 'Prospecto' : m.senderType === 'AI' ? 'Agente' : 'Asesor'}: ${describeForPrompt(m)}`)
       .join('\n');
 
     const result = await this.ai.generate(

@@ -289,15 +289,15 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  memberships          OrganizationMember[]
-  responsibleAgents    Agent[]
-  invitationsSent      Invitation[]             @relation("InvitationSender")
-  assignedAppointments Appointment[]
-  assignedLeads        Lead[]                   @relation("LeadAssignee")
-  assignedConversations Conversation[]          @relation("ConversationAssignee")
-  sentMessages         Message[]                @relation("MessageSender")
-  sessionAssignments   AgentSessionAssignment[] @relation("AssignmentAuthor")
-  calendarConnections  CalendarConnection[]
+  memberships           OrganizationMember[]
+  responsibleAgents     Agent[]
+  invitationsSent       Invitation[]             @relation("InvitationSender")
+  assignedAppointments  Appointment[]
+  assignedLeads         Lead[]                   @relation("LeadAssignee")
+  assignedConversations Conversation[]           @relation("ConversationAssignee")
+  sentMessages          Message[]                @relation("MessageSender")
+  sessionAssignments    AgentSessionAssignment[] @relation("AssignmentAuthor")
+  calendarConnections   CalendarConnection[]
 }
 
 model OrganizationMember {
@@ -589,22 +589,22 @@ model PropertyMedia {
 }
 
 model PropertySource {
-  id                 String               @id @default(uuid())
-  organizationId     String
-  name               String
-  type               PropertySourceType
-  url                String?
+  id                   String               @id @default(uuid())
+  organizationId       String
+  name                 String
+  type                 PropertySourceType
+  url                  String?
   encryptedCredentials String?
-  mappingConfig      Json?
-  frequencyMinutes   Int?
-  deactivatePolicy   String               @default("MARK_INACTIVE")
-  cursor             String?
-  status             PropertySourceStatus @default(ACTIVE)
-  lastRunAt          DateTime?
-  nextRunAt          DateTime?
-  lastError          String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  mappingConfig        Json?
+  frequencyMinutes     Int?
+  deactivatePolicy     String               @default("MARK_INACTIVE")
+  cursor               String?
+  status               PropertySourceStatus @default(ACTIVE)
+  lastRunAt            DateTime?
+  nextRunAt            DateTime?
+  lastError            String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   properties   Property[]
@@ -668,10 +668,15 @@ model MediaAsset {
   originalFilename String?
   source           MediaSource @default(UPLOAD)
   status           MediaStatus @default(PENDING)
+  /// Por qué no se pudo traer el blob. Sin esto, un PENDING eterno no se
+  /// distingue de uno que el proveedor nunca va a entregar.
+  failureReason    String?
+  attempts         Int         @default(0)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
   organization  Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  blob          MediaBlob?
   messages      Message[]
   propertyMedia PropertyMedia[]
 
@@ -679,30 +684,47 @@ model MediaAsset {
   @@index([organizationId, sha256])
 }
 
+/// Los bytes, en una tabla aparte para que ninguna consulta de listado los
+/// arrastre por accidente: `MediaAsset` se lee constantemente, el blob casi
+/// nunca.
+///
+/// Viven en PostgreSQL a propósito. No hay S3 ni MinIO en esta infraestructura,
+/// y un volumen local se pierde en cada recreación del contenedor —la misma
+/// falla que ya costó la base de datos entera—. Aquí el respaldo de la base
+/// cubre también la multimedia. `MediaAsset.storageKey` lleva el prefijo del
+/// backend (`db:`), así que mover esto a S3 el día que haga falta es cambiar
+/// una implementación de `MediaStorageService`, no el modelo.
+model MediaBlob {
+  mediaAssetId String @id
+  bytes        Bytes
+
+  mediaAsset MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+}
+
 // ---------------------------------------------------------------------------
 // Citas y calendarios
 // ---------------------------------------------------------------------------
 
 model Appointment {
-  id                    String            @id @default(uuid())
-  organizationId        String
-  leadId                String
-  propertyId            String?
-  assignedUserId        String
-  startsAt              DateTime
-  endsAt                DateTime
-  timezone              String            @default("America/Mexico_City")
-  status                AppointmentStatus @default(REQUESTED)
-  notes                 String?
-  source                String            @default("CRM")
-  personalEventId       String?
-  sharedEventId         String?
-  syncStatus            SyncStatus        @default(PENDING)
-  syncVersion           Int               @default(0)
-  lastSyncError         String?
-  lastSyncedAt          DateTime?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  id              String            @id @default(uuid())
+  organizationId  String
+  leadId          String
+  propertyId      String?
+  assignedUserId  String
+  startsAt        DateTime
+  endsAt          DateTime
+  timezone        String            @default("America/Mexico_City")
+  status          AppointmentStatus @default(REQUESTED)
+  notes           String?
+  source          String            @default("CRM")
+  personalEventId String?
+  sharedEventId   String?
+  syncStatus      SyncStatus        @default(PENDING)
+  syncVersion     Int               @default(0)
+  lastSyncError   String?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
@@ -760,17 +782,17 @@ model CalendarConnection {
 
 /// Catálogo global de proveedores. Solo SUPER_ADMIN lo administra (spec §11.15.1).
 model AiProvider {
-  id                  String         @id @default(uuid())
-  name                String
-  kind                AiProviderKind
-  baseUrl             String?
-  encryptedApiKey     String
-  supportsTools       Boolean        @default(true)
-  supportsStreaming   Boolean        @default(true)
-  enabled             Boolean        @default(true)
-  metadata            Json?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  id                String         @id @default(uuid())
+  name              String
+  kind              AiProviderKind
+  baseUrl           String?
+  encryptedApiKey   String
+  supportsTools     Boolean        @default(true)
+  supportsStreaming Boolean        @default(true)
+  enabled           Boolean        @default(true)
+  metadata          Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   modelConfigs AiModelConfig[]
   aiRuns       AiRun[]
@@ -779,22 +801,22 @@ model AiProvider {
 /// Configuración versionada de modelo. `organizationId = NULL` la vuelve global
 /// y disponible como predeterminada para todas las agencias (spec §11.15).
 model AiModelConfig {
-  id                 String   @id @default(uuid())
-  aiProviderId       String
-  organizationId     String?
-  name               String
-  model              String
-  temperature        Float    @default(0.3)
-  maxTokens          Int      @default(1024)
-  promptVersion      String   @default("v1")
-  maxToolIterations  Int      @default(4)
-  monthlyTokenLimit  Int?
-  costPerMillionIn   Decimal? @db.Decimal(10, 4)
-  costPerMillionOut  Decimal? @db.Decimal(10, 4)
-  isDefault          Boolean  @default(false)
-  enabled            Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(uuid())
+  aiProviderId      String
+  organizationId    String?
+  name              String
+  model             String
+  temperature       Float    @default(0.3)
+  maxTokens         Int      @default(1024)
+  promptVersion     String   @default("v1")
+  maxToolIterations Int      @default(4)
+  monthlyTokenLimit Int?
+  costPerMillionIn  Decimal? @db.Decimal(10, 4)
+  costPerMillionOut Decimal? @db.Decimal(10, 4)
+  isDefault         Boolean  @default(false)
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   provider     AiProvider    @relation(fields: [aiProviderId], references: [id], onDelete: Cascade)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -842,19 +864,19 @@ model AiRun {
 // ---------------------------------------------------------------------------
 
 model WebhookEvent {
-  id               String                  @id @default(uuid())
-  organizationId   String?
-  sessionId        String?
-  provider         String                  @default("OPENWA")
-  externalEventId  String
-  eventType        String
-  signatureValid   Boolean                 @default(false)
-  status           WebhookProcessingStatus @default(RECEIVED)
-  attempts         Int                     @default(0)
-  payload          Json?
-  errorMessage     String?
-  receivedAt       DateTime                @default(now())
-  processedAt      DateTime?
+  id              String                  @id @default(uuid())
+  organizationId  String?
+  sessionId       String?
+  provider        String                  @default("OPENWA")
+  externalEventId String
+  eventType       String
+  signatureValid  Boolean                 @default(false)
+  status          WebhookProcessingStatus @default(RECEIVED)
+  attempts        Int                     @default(0)
+  payload         Json?
+  errorMessage    String?
+  receivedAt      DateTime                @default(now())
+  processedAt     DateTime?
 
   organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   session      WhatsappSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)

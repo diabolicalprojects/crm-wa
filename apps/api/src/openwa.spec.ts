@@ -133,7 +133,10 @@ describe('ingesta de eventos', () => {
       auditLog: { create: vi.fn() },
     };
     events = { publish: vi.fn(), stream: vi.fn(), connections: vi.fn() };
-    ingest = new OpenWaIngestService(db, automation, events);
+    ingest = new OpenWaIngestService(db, automation, events, {
+      store: vi.fn(),
+      reserve: vi.fn(),
+    } as any);
   });
 
   it('registra un mensaje entrante y encola la respuesta de la IA', async () => {

@@ -51,6 +51,7 @@ const PRODUCT_RULES = `Reglas del negocio inmobiliario (obligatorias):
 - No prometas rendimientos, plusvalía ni aprobación de crédito.
 - No des asesoría legal, fiscal ni financiera: en esos casos usa handoffToHuman.
 - Recomienda como máximo 3 opciones por mensaje y explica brevemente por qué coincide cada una.
+- Cuando el historial diga que el prospecto envió una foto, un audio o un documento, NO puedes verlo ni escucharlo. Reconoce que llegó y pide que te describa lo importante o avisa que un asesor lo revisará. Nunca describas, interpretes ni des por hecho su contenido.
 
 Cuándo transferir con handoffToHuman:
 - El prospecto pide hablar con una persona.
