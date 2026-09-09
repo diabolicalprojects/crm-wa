@@ -1,10 +1,12 @@
 # Estado del proyecto — Horizonte CRM
 
 > Documento de contexto para retomar el trabajo. Última actualización:
-> 31 de agosto de 2026, commit `c252811`.
+> 9 de septiembre de 2026, commit `d3f9a40`.
 >
 > Complementa, no reemplaza:
 > - [`especificacion-crm-ia-openwa-inmobiliaria.md`](../especificacion-crm-ia-openwa-inmobiliaria.md) — qué debe ser el producto
+> - [`docs/el-producto.md`](el-producto.md) — de qué trata, para explicárselo a alguien
+> - [`docs/frente-a-nocnok.md`](frente-a-nocnok.md) — qué falta para competir y en qué orden
 > - [`docs/openwa-contract.md`](openwa-contract.md) — contrato real de la pasarela de WhatsApp
 
 ---
@@ -63,6 +65,17 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
 - **Salud del sistema y métricas** en la consola de superadministración.
 - **Google Calendar**: OAuth, calendario personal y compartido, sincronización
   de visitas con reintentos.
+- **La consola funciona en teléfono.** Tablas como fichas por debajo de 720px,
+  bandeja en lista/hilo/ficha, menú como cajón. Sin desbordamiento horizontal
+  de 320 a 1920px.
+- **Multimedia** (§21): se reciben y se envían imágenes, audios, videos y
+  documentos. Los bytes viven en PostgreSQL (`MediaBlob`), deduplicados por
+  SHA-256 dentro de la agencia. Lo que el webhook omite por tamaño lo completa
+  un barrido.
+- **Reglas de asignación** (§14.2): responsable del canal, carrusel, guardia y
+  propietario, con la regla del asesor persistente por encima de todas.
+- **Seguimiento proactivo**: la IA vuelve a escribir a quien dejó de contestar.
+  Apagado por omisión y por agente.
 
 ### Pendiente de verificar
 
@@ -74,7 +87,9 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
 
 1. **`OPENWA_API_KEY` está vacía** en las variables de `crm-api`. Los mensajes
    entrantes llegan porque el webhook ya estaba registrado, pero **el CRM no
-   puede enviar**. Generarla en el dashboard de OpenWA → Claves de API.
+   puede enviar** —ni texto ni archivos, y tampoco puede recuperar la
+   multimedia que el webhook omite por tamaño—. Generarla en el dashboard de
+   OpenWA → Claves de API.
 2. **Cuota de Gemini agotada** (`429 You exceeded your current quota`).
    Habilitar facturación o conectar Anthropic/OpenAI.
 3. **Importar el inventario** de [`scripts/seed/inventario-demo.csv`](../scripts/seed/inventario-demo.csv)
@@ -88,8 +103,11 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
 - **Fuentes de inventario** API, XML/JSON y Google Sheets (§14.4). Solo hay
   carga manual y CSV/Excel. El esquema ya tiene `PropertySource` y
   `PropertySyncRun`; falta el motor de mapeo y el worker.
-- **Multimedia** (§21). No se reciben ni almacenan imágenes ni documentos.
-  Requiere decidir almacenamiento: no hay S3 ni MinIO en la infraestructura.
+- **Permisos granulares.** Cuatro roles fijos. La brecha frente a NOCNOK y lo
+  que justifica el precio de agencia; ver el montón A5 de
+  [`frente-a-nocnok.md`](frente-a-nocnok.md).
+- **La ficha de propiedad completa**: comisión, exclusividad, las seis
+  operaciones, clave interna y propietario confidencial (montón A4).
 - **Pruebas E2E** del guion completo de §22.3 y evaluaciones antialucinación
   de §22.4.
 

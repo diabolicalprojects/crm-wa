@@ -212,7 +212,8 @@ existen—, pero no mueve la decisión de compra de quien vino por la IA.
 
 Tres tramos. Cada uno termina en algo demostrable.
 
-**Tramo 1 — que la conversación esté completa** (A1, A2, B1)
+**Tramo 1 — que la conversación esté completa** (A1, A2, B1) · ✅ **hecho el
+9 de septiembre de 2026, commits `9e03fbb`, `ab8c2e1` y `d3f9a40`**
 Multimedia, la regla del asesor persistente más carrusel y guardia, y el
 seguimiento proactivo. Al terminar, la demo es: llega un mensaje a las 11 de la
 noche con una foto, se reparte solo, se contesta, y a los dos días la IA
