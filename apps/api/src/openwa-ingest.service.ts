@@ -5,6 +5,7 @@ import { AutomationService } from './automation.service';
 import { AssignmentService } from './assignment.service';
 import { pidioNoSerContactado } from './follow-up.service';
 import { MediaStorageService } from './media-storage.service';
+import { NotificationsService } from './notifications.service';
 import { EventsService } from './events.service';
 import { mapProviderStatus } from './openwa.gateway';
 
@@ -77,6 +78,7 @@ export class OpenWaIngestService {
     private events: EventsService,
     private media: MediaStorageService,
     private assignment: AssignmentService,
+    private notifications: NotificationsService,
   ) {}
 
   async handle(envelope: OpenWaEnvelope): Promise<{ handled: boolean; reason?: string }> {
@@ -186,6 +188,8 @@ export class OpenWaIngestService {
       return { handled: true, reason: 'mensaje duplicado' };
     }
 
+    const esPrimerEntrante = !conversation.lastInboundAt;
+
     const now = new Date();
     // Una baja es definitiva y se detecta aquí, no en el barrido: hay que
     // registrarla aunque nunca vuelva a haber un seguimiento pendiente.
@@ -209,6 +213,22 @@ export class OpenWaIngestService {
       conversationId: conversation.id,
       leadId: lead.id,
     });
+
+    // Solo el primer mensaje del hilo: avisar de cada uno convertiría el aviso
+    // en ruido y, por WhatsApp, en una conversación paralela con el asesor.
+    // Se lee de la conversación tal como estaba antes de esta vuelta, así que
+    // no cuesta una consulta más en la ruta que recorre cada mensaje.
+    if (esPrimerEntrante) {
+      await this.notifications.notify({
+        organizationId,
+        userIds: [conversation.assignedUserId, session.agent?.responsibleUserId],
+        kind: 'LEAD_NUEVO',
+        title: `${lead.name || phone} escribió por primera vez`,
+        body: data.body ? String(data.body).slice(0, 180) : 'Envió un archivo.',
+        entityType: 'Conversation',
+        entityId: conversation.id,
+      });
+    }
 
     // La generación de la respuesta ocurre fuera del ciclo HTTP (spec §28.3).
     await this.automation.enqueue(conversation.id);

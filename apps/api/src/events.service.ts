@@ -22,6 +22,8 @@ export type LiveEvent =
   // Un mensaje ya visible cambió: hoy solo cuando llega el archivo que
   // el webhook no traía. La bandeja lo usa para recargar ese hilo.
   | { type: 'message.updated'; conversationId: string }
+  // La campana de la consola se recarga con esto, sin sondear.
+  | { type: 'notification.created' }
   | { type: 'conversation.updated'; conversationId: string; mode?: string; status?: string }
   | { type: 'session.updated'; sessionId: string; status: string }
   | { type: 'ping' };

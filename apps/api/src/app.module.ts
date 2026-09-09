@@ -26,6 +26,8 @@ import { MediaController } from './media.controller';
 import { MediaFetchService } from './media-fetch.service';
 import { MediaStorageService } from './media-storage.service';
 import { OpenWaGateway } from './openwa.gateway';
+import { NotificationsController } from './notifications.controller';
+import { NotificationsService } from './notifications.service';
 import { OpenWaIngestService } from './openwa-ingest.service';
 import { OpenWaWebhookController } from './openwa-webhook.controller';
 import { OrganizationsController } from './organizations.controller';
@@ -61,6 +63,7 @@ import { WhatsappController } from './whatsapp.controller';
     ConversationsController,
     AssignmentController,
     PermissionsController,
+    NotificationsController,
     MediaController,
     OpenWaWebhookController,
   ],
@@ -73,6 +76,7 @@ import { WhatsappController } from './whatsapp.controller';
     OpenWaIngestService,
     AssignmentService,
     PermissionsService,
+    NotificationsService,
     MediaStorageService,
     MediaFetchService,
     FollowUpService,

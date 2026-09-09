@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import './globals.css';
 import { Avatar, Button, Icon, ToastProvider } from './components/ui';
+import { Bell } from './components/bell';
 import { request, signOut } from './lib/api';
 import { initials, label } from './lib/format';
 import { Agents, WhatsApp } from './screens/agents';
@@ -13,6 +14,7 @@ import { Brand, Login, type User } from './screens/auth';
 import { Conversations } from './screens/conversations';
 import { Dashboard } from './screens/dashboard';
 import { Leads } from './screens/leads';
+import { Notifications } from './screens/notifications';
 import { Permissions } from './screens/permissions';
 import { Properties } from './screens/properties';
 
@@ -33,6 +35,7 @@ const NAV: Nav[] = [
   { key: 'whatsapp', label: 'WhatsApp', icon: 'phone', group: 'Configuración' },
   { key: 'equipo', label: 'Equipo', icon: 'settings', group: 'Configuración' },
   { key: 'permisos', label: 'Permisos', icon: 'shield', group: 'Configuración' },
+  { key: 'avisos', label: 'Avisos', icon: 'alert', group: 'Configuración' },
   { key: 'auditoria', label: 'Auditoría', icon: 'shield', group: 'Configuración' },
 
   { key: 'agencias', label: 'Agencias', icon: 'building', group: 'Superadministración', superAdmin: true },
@@ -125,6 +128,7 @@ export default function Home() {
     whatsapp: <WhatsApp />,
     equipo: <Team organizationId={tenantId} />,
     permisos: <Permissions />,
+    avisos: <Notifications />,
     auditoria: <Audit />,
     agencias: <Organizations />,
     proveedores: <AiProviders />,
@@ -180,6 +184,7 @@ export default function Home() {
               <span className="crumb-group">{current.group} / </span><b>{current.label}</b>
             </span>
             <div className="topbar-right">
+              <Bell onOpenConversations={() => setPage('conversaciones')} />
               {user.isSuperAdmin && organizations.length > 0 && (
                 <select
                   className="select org-select"

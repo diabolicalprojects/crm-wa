@@ -7,6 +7,7 @@ import { AiToolsService, ToolContext } from './ai-tools.service';
 import { EventsService } from './events.service';
 import { OpenWaGateway } from './openwa.gateway';
 import { PrismaService } from './prisma.service';
+import { NotificationsService } from './notifications.service';
 import { SecretsService } from './secrets.service';
 import { buildSystemPrompt, PROMPT_VERSION, SUMMARY_INSTRUCTIONS } from './prompt';
 
@@ -172,6 +173,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     private ai: AiGateway,
     private tools: AiToolsService,
     private events: EventsService,
+    private notifications: NotificationsService,
   ) {}
 
   onModuleInit() {
@@ -548,6 +550,18 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
           entityId: conversation.id,
           metadata: handoff,
         },
+      });
+
+      // Un handoff que nadie ve deja al prospecto esperando a un humano que no
+      // sabe que lo esperan: es el peor estado posible de esta conversación.
+      await this.notifications.notify({
+        organizationId: conversation.organizationId,
+        userIds: [conversation.assignedUserId, agent.responsibleUserId],
+        kind: 'HANDOFF',
+        title: `${conversation.lead.name || conversation.lead.phone} necesita a una persona`,
+        body: handoff.reason,
+        entityType: 'Conversation',
+        entityId: conversation.id,
       });
     }
 

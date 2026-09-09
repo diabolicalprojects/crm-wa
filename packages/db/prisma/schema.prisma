@@ -303,6 +303,7 @@ model Organization {
   matches         LeadPropertyMatch[]
   calendars       CalendarConnection[]
   modelConfigs    AiModelConfig[]
+  notifications   Notification[]
 }
 
 model User {
@@ -312,10 +313,17 @@ model User {
   passwordHash String?
   status       UserStatus @default(INVITED)
   isSuperAdmin Boolean    @default(false)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+
+  /// Adónde mandarle avisos por WhatsApp. Lo captura la propia persona: mandar
+  /// mensajes a un número que alguien más escribió por ella es la forma de
+  /// acabar avisándole a un desconocido.
+  notificationPhone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   memberships           OrganizationMember[]
+  notifications         Notification[]
   responsibleAgents     Agent[]
   invitationsSent       Invitation[]             @relation("InvitationSender")
   assignedAppointments  Appointment[]
@@ -332,6 +340,9 @@ model OrganizationMember {
   userId         String
   role           Role
   status         UserStatus @default(ACTIVE)
+
+  /// Qué avisos quiere y por dónde: `{ "prospecto.nuevo": ["APP","WHATSAPP"] }`.
+  notificationPrefs Json?
 
   /// Excepciones al rol: `{ grant: [...], revoke: [...] }`. El rol sigue siendo
   /// el punto de partida; esto existe para el caso raro —un supervisor sin
@@ -936,6 +947,44 @@ model WebhookEvent {
   @@unique([provider, externalEventId])
   @@index([organizationId, receivedAt])
   @@index([status, receivedAt])
+}
+
+/// Qué ocurrió que a alguien le interesa saber.
+enum NotificationKind {
+  /// Alguien nuevo escribió por primera vez.
+  LEAD_NUEVO
+  /// La IA pidió que un humano tome la conversación.
+  HANDOFF
+  /// La IA registró una visita que falta confirmar.
+  VISITA_SOLICITADA
+  /// Te asignaron una conversación.
+  CONVERSACION_ASIGNADA
+  /// Un número de WhatsApp dejó de estar conectado.
+  CANAL_CAIDO
+}
+
+/// Un aviso para una persona. Se guarda siempre, aunque además salga por
+/// WhatsApp: un aviso que solo existió como mensaje no se puede volver a leer
+/// desde la consola.
+model Notification {
+  id             String           @id @default(uuid())
+  organizationId String
+  userId         String
+  kind           NotificationKind
+  title          String
+  body           String?
+  entityType     String?
+  entityId       String?
+  /// Nulo mientras no se haya leído. Es fecha y no booleano porque saber
+  /// *cuándo* se enteró alguien es la mitad de la pregunta.
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([organizationId, createdAt])
 }
 
 model AuditLog {

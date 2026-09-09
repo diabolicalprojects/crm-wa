@@ -716,3 +716,45 @@ td b { font-weight: 600; }
 .ia-tool b { font-weight: 600; font-family: ui-monospace, monospace; font-size: 12px; }
 .ia-tool span { color: var(--text-3); }
 .ia-args { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 2px; word-break: break-word; }
+
+/* ------------------------------------------------------------------ avisos */
+
+.bell { position: relative; }
+.bell-count {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  display: grid; place-items: center;
+  background: var(--danger); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 1;
+  border-radius: var(--r-full); border: 2px solid var(--surface);
+}
+.bell-panel {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 80;
+  width: min(340px, calc(100vw - 24px));
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-lg); overflow: hidden;
+  animation: rise .14s cubic-bezier(.2, .8, .3, 1);
+}
+.bell-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+}
+.bell-head b { font-size: 13.5px; }
+.bell-clear { width: auto; margin: 0 0 0 auto; padding: 0; font-size: 12px; }
+.bell-list { max-height: min(60vh, 420px); overflow-y: auto; }
+.bell-item {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  padding: 11px 14px; border: 0; border-bottom: 1px solid var(--border);
+  background: none; color: var(--text); text-align: left; cursor: pointer;
+}
+.bell-item:last-child { border-bottom: none; }
+.bell-item:hover { background: var(--surface-2); }
+.bell-item svg { flex: 0 0 16px; margin-top: 2px; color: var(--text-3); }
+.bell-item b { display: block; font-size: 13px; font-weight: 600; }
+.bell-item small { display: block; font-size: 12px; color: var(--text-3); margin-top: 1px; }
+.bell-item time { display: block; font-size: 11px; color: var(--text-3); margin-top: 3px; }
+/* Lo no leído se distingue por un filete, no por fondo: el fondo compite con
+   el estado de hover y deja de leerse en cuanto pasas el ratón. */
+.bell-item.sin-leer { border-left: 3px solid var(--primary); }
+.bell-item.sin-leer svg { color: var(--primary); }
+.bell-item.sin-leer b { font-weight: 700; }

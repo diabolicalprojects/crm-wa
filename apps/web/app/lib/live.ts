@@ -8,6 +8,9 @@ export type LiveEvent =
   | { type: 'message.created'; conversationId: string; leadId: string }
   | { type: 'conversation.updated'; conversationId: string; mode?: string; status?: string }
   | { type: 'session.updated'; sessionId: string; status: string }
+  // El archivo que el webhook no traía ya llegó: ese hilo hay que recargarlo.
+  | { type: 'message.updated'; conversationId: string }
+  | { type: 'notification.created' }
   | { type: 'ping' };
 
 /**
