@@ -63,14 +63,21 @@ no aparecen en el recorrido de NOCNOK. Son material de venta, no de roadmap.
 
 Ordenado por lo que más pesa en una demo frente a un dueño de agencia.
 
-### A1. Multimedia en la conversación · **crítico**
+### A1. Multimedia en la conversación · ✅ **hecho** (`9e03fbb`)
 
-Hoy no se reciben ni se envían fotos, audios ni documentos. En bienes raíces
-eso no es una carencia de producto: es una conversación rota. El prospecto
-manda la foto del terreno y pide fotos de la casa; el asesor manda el plano.
+En bienes raíces una conversación sin fotos no es una carencia de producto: es
+una conversación rota. El prospecto manda la foto del terreno y pide fotos de
+la casa; el asesor manda el plano.
 
-Requiere decidir almacenamiento —no hay S3 ni MinIO en la infraestructura— y
-el esquema ya tiene `MediaAsset` y `PropertyMedia` esperando.
+Los bytes viven en PostgreSQL porque no hay S3 ni MinIO y un volumen local no
+sobrevive a la recreación del contenedor. `storageKey` lleva el prefijo del
+backend, así que migrar a S3 el día que el volumen crezca es cambiar una
+implementación de `MediaStorageService`.
+
+> Verificar el contrato antes de escribir pagó solo: `sendMedia` mandaba un
+> campo `media` que no existe, y la ruta de blob que teníamos documentada
+> llevaba `messageId/mediaId` cuando la real es `chatId/messageId`. Las dos
+> habrían fallado siempre.
 
 ### A2. Reglas de asignación de prospectos · **alto valor, bajo costo**
 
@@ -80,7 +87,9 @@ primer asesor que atendió**. Esa última es la más importante y la más barata
 es una regla de comisión disfrazada de software, y es lo que evita la pelea
 interna que hunde la adopción de un CRM en una agencia.
 
-Horizonte hoy asigna por canal → agente → responsable, y nada más.
+✅ **Hecho** (`ab8c2e1`), con los cuatro modos que importan y la regla del
+asesor persistente por encima de todos. Queda fuera «líder de grupo», que
+necesita el concepto de equipo y todavía no existe.
 
 ### A3. Notificaciones · **alto valor, costo medio**
 
@@ -149,9 +158,14 @@ recordatorio. «La propiedad que le gustó bajó de precio» → un aviso.
 NOCNOK no lo tiene. Su asistente contesta; no persigue. Y es exactamente lo
 que el dueño de agencia sabe que su equipo no hace.
 
-Horizonte ya tiene las tres piezas: cola con BullMQ, memoria de conversación y
-el modo de control que impide escribir encima de un humano. Falta el
-planificador y las reglas.
+✅ **Hecho** (`d3f9a40`), para el disparador de silencio. Apagado por omisión y
+por agente, con franja de silencio nocturna como tope duro, baja voluntaria
+detectada en la ingesta, y la capacidad del agente de negarse a insistir cuando
+no tiene nada que aportar.
+
+Faltan los otros dos disparadores del párrafo de arriba: el recordatorio de
+visita y el aviso de cambio de precio. La infraestructura ya está; son reglas
+nuevas sobre el mismo barrido.
 
 ### B2. Agendado confirmado, no solicitado · **NOCNOK lo tiene en «Próximamente»**
 
