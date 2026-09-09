@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Job, Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { AiGateway, AiMessage, AiResult } from './ai-gateway';
@@ -71,6 +72,68 @@ const ADJUNTOS: Record<string, string> = {
 
 /** Palabra con la que el agente declina insistir. */
 export const NO_INSISTIR = 'NO_INSISTIR';
+
+/**
+ * Qué queda escrito de cada herramienta que ejecutó el agente.
+ *
+ * Antes se guardaba solo el nombre, y con eso no se puede responder la pregunta
+ * que de verdad hace un dueño de agencia: «¿de dónde sacó ese precio?». Se
+ * guarda qué se pidió y qué contestó —no el resultado completo, que puede ser
+ * largo, sino su forma— para que la conversación sea auditable sin volverse un
+ * volcado.
+ */
+export interface ToolTrace {
+  name: string;
+  /** Los argumentos con los que el modelo la llamó, recortados. */
+  args?: Record<string, unknown>;
+  /** Una línea legible de lo que devolvió. */
+  detail?: string;
+  ok: boolean;
+}
+
+const MAX_ARG_CHARS = 120;
+
+export function traceOf(
+  call: { name: string; arguments?: unknown },
+  outcome: { result: string; recommendedPropertyIds?: string[] },
+): ToolTrace {
+  const args =
+    call.arguments && typeof call.arguments === 'object' && !Array.isArray(call.arguments)
+      ? Object.fromEntries(
+          Object.entries(call.arguments as Record<string, unknown>)
+            .filter(([, v]) => v !== undefined && v !== null && v !== '')
+            .slice(0, 12)
+            .map(([k, v]) => [k, recortar(v)]),
+        )
+      : undefined;
+
+  // El resultado de una búsqueda es JSON; el de las demás, una frase. Se
+  // resume lo primero y se recorta lo segundo.
+  let detail: string | undefined;
+  let ok = true;
+  try {
+    const parsed = JSON.parse(outcome.result);
+    if (typeof parsed?.found === 'number') {
+      detail = `${parsed.found} ${parsed.found === 1 ? 'resultado' : 'resultados'}`;
+      ok = parsed.found > 0;
+    } else {
+      detail = String(outcome.result).slice(0, 160);
+    }
+  } catch {
+    detail = String(outcome.result).slice(0, 160);
+    ok = !/^No fue posible|^Herramienta desconocida/.test(detail);
+  }
+
+  if (outcome.recommendedPropertyIds?.length) {
+    detail = `${detail} · ${outcome.recommendedPropertyIds.length} recomendadas`;
+  }
+  return { name: call.name, ...(args ? { args } : {}), detail, ok };
+}
+
+function recortar(value: unknown) {
+  const texto = typeof value === 'string' ? value : JSON.stringify(value);
+  return texto && texto.length > MAX_ARG_CHARS ? `${texto.slice(0, MAX_ARG_CHARS)}…` : value;
+}
 
 /**
  * Lo que se le añade al contexto cuando el turno es un seguimiento proactivo y
@@ -264,7 +327,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
           latencyMs: Date.now() - startedAt,
           promptTokens: outcome.promptTokens,
           completionTokens: outcome.completionTokens,
-          toolsInvoked: outcome.toolsInvoked,
+          toolsInvoked: outcome.toolsInvoked as unknown as Prisma.InputJsonValue,
           finishedAt: new Date(),
         },
       });
@@ -363,7 +426,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
         content: describeForPrompt(message),
       }))
       .filter((message) => message.content.length > 0);
-    if (!messages.length) return { sent: false, toolsInvoked: [], lastSeenMessageId };
+    if (!messages.length) return { sent: false, toolsInvoked: [] as ToolTrace[], lastSeenMessageId };
 
     // La marca puede haber quedado obsoleta: el `jobId` es la conversación, así
     // que un mensaje que llegó entre encolar y procesar comparte trabajo con el
@@ -378,7 +441,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
         summary: conversation.summary,
       }) + (esSeguimiento ? FOLLOW_UP_INSTRUCTIONS : '');
 
-    const toolsInvoked: string[] = [];
+    const toolsInvoked: ToolTrace[] = [];
     const recommended = new Set<string>();
     let handoff: { reason: string; priority: string } | undefined;
     let result: AiResult | undefined;
@@ -401,8 +464,8 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
 
       messages.push({ role: 'assistant', content: result.text, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
-        toolsInvoked.push(call.name);
         const outcome = await this.tools.execute(context, call);
+        toolsInvoked.push(traceOf(call, outcome));
         outcome.recommendedPropertyIds?.forEach((id) => recommended.add(id));
         if (outcome.handoff) handoff = outcome.handoff;
         messages.push({

@@ -59,7 +59,9 @@ describe('operación, métricas e importación sin OpenWA', () => {
   });
 
   it('cambia takeover y devuelve a la IA sin invocar OpenWA', async () => {
-    const controller = new ConversationsController(db, {} as any);
+    const controller = new ConversationsController(db, {} as any, {
+      of: async () => new Set(['conversaciones.verTodas']),
+    } as any);
     await controller.takeover(owner, 'org-1', 'c1');
     await controller.returnToAi(owner, 'org-1', 'c1');
     expect(db.conversation.update).toHaveBeenNthCalledWith(1, {

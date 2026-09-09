@@ -9,6 +9,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { OperationType, Prisma, PropertyType } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import { Roles } from './auth';
+import { RequirePermission } from './permissions';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
 
@@ -133,6 +134,7 @@ export class ImportsController {
 
   @Post('properties')
   @Roles('OWNER', 'ADMIN', 'SUPERVISOR')
+  @RequirePermission('inventario.importar')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES } }))
   async properties(
     @TenantId() organizationId: string,

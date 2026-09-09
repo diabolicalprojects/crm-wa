@@ -5,6 +5,7 @@ import { AppointmentsController } from './appointments.controller';
 import { AuthUser } from './auth';
 import { LeadsController } from './leads.controller';
 import { PropertiesController } from './properties.controller';
+import { effectivePermissions } from './permissions';
 
 const owner: AuthUser = {
   id: 'u1',
@@ -100,7 +101,11 @@ describe('CRUD del CRM aislado por agencia', () => {
   });
 
   it('un asesor solo consulta sus leads; un propietario ve todos', async () => {
-    const controller = new LeadsController(db);
+    // Con la matriz real: quien tiene `prospectos.verTodos` ve todo, quien no,
+    // solo lo suyo. La prueba se rompe si cambia lo que trae un rol de fábrica.
+    const controller = new LeadsController(db, {
+      of: async (u: any) => effectivePermissions(u.role, null, u.isSuperAdmin),
+    } as any);
     await controller.list(owner, 'org-1', {} as any);
     expect(db.lead.findMany.mock.calls[0][0].where).not.toHaveProperty('OR');
 

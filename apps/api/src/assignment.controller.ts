@@ -15,6 +15,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from './auth';
+import { RequirePermission } from './permissions';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
 
@@ -81,6 +82,7 @@ export class AssignmentController {
 
   @Put()
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('asignacion.administrar')
   async save(
     @CurrentUser() user: AuthUser,
     @TenantId() organizationId: string,

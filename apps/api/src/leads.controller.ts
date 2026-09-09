@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { LeadStage, Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
@@ -14,6 +14,7 @@ import {
   Min,
 } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from './auth';
+import { PermissionsService, RequirePermission, type Permission } from './permissions';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
 
@@ -49,8 +50,8 @@ class ListLeadsDto {
  * agencia. El filtro se aplica en el backend porque ocultar botones en el
  * frontend no es autorización (spec §6.1).
  */
-export function advisorScope(user: AuthUser): Prisma.LeadWhereInput {
-  if (user.isSuperAdmin || user.role !== 'ADVISOR') return {};
+export function scopeFor(permisos: Set<Permission>, user: AuthUser): Prisma.LeadWhereInput {
+  if (permisos.has('prospectos.verTodos')) return {};
   return {
     OR: [
       { assignedUserId: user.id },
@@ -62,7 +63,10 @@ export function advisorScope(user: AuthUser): Prisma.LeadWhereInput {
 
 @Controller('leads')
 export class LeadsController {
-  constructor(private db: PrismaService) {}
+  constructor(
+    private db: PrismaService,
+    private permisos: PermissionsService,
+  ) {}
 
   @Get()
   async list(
@@ -75,7 +79,7 @@ export class LeadsController {
       where: {
         organizationId,
         stage: query.stage,
-        ...advisorScope(user),
+        ...scopeFor(await this.permisos.of(user), user),
         ...(query.search
           ? {
               OR: [
@@ -101,7 +105,7 @@ export class LeadsController {
     @Param('id') id: string,
   ) {
     const lead = await this.db.lead.findFirst({
-      where: { id, organizationId, ...advisorScope(user) },
+      where: { id, organizationId, ...scopeFor(await this.permisos.of(user), user) },
       include: {
         conversations: { include: { agent: { select: { id: true, name: true } } } },
         matches: {
@@ -130,10 +134,29 @@ export class LeadsController {
     @Body() dto: UpdateLeadDto,
   ) {
     await this.assertVisible(user, organizationId, id);
+    await this.assertPuedeEditar(user, organizationId, id);
     return this.db.lead.update({
       where: { id, organizationId },
       data: { ...dto, preferences: dto.preferences as Prisma.InputJsonValue | undefined },
     });
+  }
+
+  /**
+   * Ver un prospecto y poder cambiarlo no son lo mismo. Un asesor puede leer el
+   * de un compañero cuando comparten conversación; cambiarle la etapa o
+   * reasignarlo exige `prospectos.editarDeOtros`.
+   */
+  private async assertPuedeEditar(user: AuthUser, organizationId: string, id: string) {
+    const permisos = await this.permisos.of(user);
+    if (permisos.has('prospectos.editarDeOtros')) return;
+
+    const propio = await this.db.lead.findFirst({
+      where: { id, organizationId, assignedUserId: user.id },
+      select: { id: true },
+    });
+    if (!propio) {
+      throw new ForbiddenException('Este prospecto está asignado a otra persona');
+    }
   }
 
   @Delete(':id')
@@ -144,7 +167,7 @@ export class LeadsController {
 
   private async assertVisible(user: AuthUser, organizationId: string, id: string) {
     const found = await this.db.lead.findFirst({
-      where: { id, organizationId, ...advisorScope(user) },
+      where: { id, organizationId, ...scopeFor(await this.permisos.of(user), user) },
       select: { id: true },
     });
     if (!found) throw new NotFoundException('Lead no encontrado');

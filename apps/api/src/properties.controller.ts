@@ -15,6 +15,7 @@ import {
   Min,
 } from 'class-validator';
 import { Roles } from './auth';
+import { RequirePermission } from './permissions';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
 
@@ -112,6 +113,7 @@ export class PropertiesController {
 
   @Post()
   @Roles('OWNER', 'ADMIN', 'SUPERVISOR')
+  @RequirePermission('inventario.administrar')
   create(@TenantId() organizationId: string, @Body() dto: CreatePropertyDto) {
     return this.db.property.create({
       data: {
@@ -125,6 +127,7 @@ export class PropertiesController {
 
   @Patch(':id')
   @Roles('OWNER', 'ADMIN', 'SUPERVISOR')
+  @RequirePermission('inventario.administrar')
   update(
     @TenantId() organizationId: string,
     @Param('id') id: string,
@@ -141,6 +144,7 @@ export class PropertiesController {
 
   @Delete(':id')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('inventario.administrar')
   remove(@TenantId() organizationId: string, @Param('id') id: string) {
     // Borrado lógico: el inventario aparece en recomendaciones históricas.
     return this.db.property.update({

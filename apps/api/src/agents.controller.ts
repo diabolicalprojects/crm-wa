@@ -15,6 +15,7 @@ import { AgentStatus, OperationMode, Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsObject, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from './auth';
+import { RequirePermission } from './permissions';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
 
@@ -83,6 +84,7 @@ export class AgentsController {
 
   @Post()
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('agentes.administrar')
   async create(@TenantId() organizationId: string, @Body() dto: CreateAgentDto) {
     await this.assertAdvisorIsFree(organizationId, dto.responsibleUserId);
     try {
@@ -109,6 +111,7 @@ export class AgentsController {
 
   @Patch(':id')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('agentes.administrar')
   async update(
     @TenantId() organizationId: string,
     @Param('id') id: string,
@@ -132,12 +135,14 @@ export class AgentsController {
 
   @Post(':id/activate')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('agentes.administrar')
   activate(@TenantId() organizationId: string, @Param('id') id: string) {
     return this.db.agent.update({ where: { id, organizationId }, data: { status: 'ACTIVE' } });
   }
 
   @Post(':id/pause')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('agentes.administrar')
   pause(@TenantId() organizationId: string, @Param('id') id: string) {
     // Pausar la IA no desconecta el número: la sesión sigue viva (spec §7.2).
     return this.db.agent.update({
@@ -153,6 +158,7 @@ export class AgentsController {
    */
   @Put(':id/session-assignment')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('agentes.administrar')
   async assign(
     @CurrentUser() user: AuthUser,
     @TenantId() organizationId: string,
@@ -219,6 +225,7 @@ export class AgentsController {
 
   @Delete(':id/session-assignment')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('agentes.administrar')
   async unassign(
     @CurrentUser() user: AuthUser,
     @TenantId() organizationId: string,
@@ -249,6 +256,7 @@ export class AgentsController {
 
   @Delete(':id')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('agentes.administrar')
   remove(@TenantId() organizationId: string, @Param('id') id: string) {
     return this.db.agent.update({
       where: { id, organizationId },

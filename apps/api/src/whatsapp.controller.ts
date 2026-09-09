@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { IsString, Length } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from './auth';
+import { RequirePermission } from './permissions';
 import { loadConfig, webhookUrl } from './config';
 import { CRM_WEBHOOK_EVENTS, OpenWaGateway } from './openwa.gateway';
 import { PrismaService } from './prisma.service';
@@ -42,6 +43,7 @@ export class WhatsappController {
 
   @Post()
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('canales.administrar')
   async create(
     @CurrentUser() user: AuthUser,
     @TenantId() organizationId: string,
@@ -96,6 +98,7 @@ export class WhatsappController {
 
   @Post(':id/start')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('canales.administrar')
   async start(@TenantId() organizationId: string, @Param('id') id: string) {
     const session = await this.session(organizationId, id);
     await this.openwa.startSession(this.providerId(session));
@@ -104,6 +107,7 @@ export class WhatsappController {
 
   @Post(':id/stop')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('canales.administrar')
   async stop(@TenantId() organizationId: string, @Param('id') id: string) {
     const session = await this.session(organizationId, id);
     await this.openwa.stopSession(this.providerId(session));
@@ -115,6 +119,7 @@ export class WhatsappController {
 
   @Post(':id/reconnect')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('canales.administrar')
   async reconnect(@TenantId() organizationId: string, @Param('id') id: string) {
     const session = await this.session(organizationId, id);
     const providerSessionId = this.providerId(session);
@@ -151,6 +156,7 @@ export class WhatsappController {
 
   @Delete(':id')
   @Roles('OWNER', 'ADMIN')
+  @RequirePermission('canales.administrar')
   async remove(
     @CurrentUser() user: AuthUser,
     @TenantId() organizationId: string,

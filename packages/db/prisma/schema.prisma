@@ -332,8 +332,13 @@ model OrganizationMember {
   userId         String
   role           Role
   status         UserStatus @default(ACTIVE)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+
+  /// Excepciones al rol: `{ grant: [...], revoke: [...] }`. El rol sigue siendo
+  /// el punto de partida; esto existe para el caso raro —un supervisor sin
+  /// reasignar, un asesor que sí ve toda la agencia— y no para llenarse entero.
+  permissions Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -12,6 +12,7 @@ import { ConversationStatus, Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from './auth';
+import { PermissionsService, RequirePermission, type Permission } from './permissions';
 import { OpenWaGateway } from './openwa.gateway';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
@@ -36,9 +37,16 @@ class ListConversationsDto {
   @IsOptional() @IsString() cursor?: string;
 }
 
-/** Un asesor solo ve las conversaciones de su agente o las asignadas (§7.3). */
-function advisorScope(user: AuthUser): Prisma.ConversationWhereInput {
-  if (user.isSuperAdmin || user.role !== 'ADVISOR') return {};
+/**
+ * Quien no puede ver toda la agencia ve lo suyo: lo que se le asignó o lo que
+ * atiende su agente (§7.3).
+ *
+ * Antes esto miraba el rol. Ahora mira el permiso, que es lo que permite darle
+ * a un asesor concreto visibilidad completa sin volverlo supervisor —y
+ * quitársela a un supervisor sin degradarlo—.
+ */
+function scopeFor(permisos: Set<Permission>, user: AuthUser): Prisma.ConversationWhereInput {
+  if (permisos.has('conversaciones.verTodas')) return {};
   return {
     OR: [{ assignedUserId: user.id }, { agent: { responsibleUserId: user.id } }],
   };
@@ -49,6 +57,7 @@ export class ConversationsController {
   constructor(
     private db: PrismaService,
     private openwa: OpenWaGateway,
+    private permisos: PermissionsService,
   ) {}
 
   @Get()
@@ -64,7 +73,7 @@ export class ConversationsController {
         status: query.status,
         sessionId: query.sessionId,
         // Se aplica después del canal: acotar por rol nunca es opcional.
-        ...advisorScope(user),
+        ...scopeFor(await this.permisos.of(user), user),
       },
       include: {
         lead: true,
@@ -87,7 +96,7 @@ export class ConversationsController {
     @Param('id') id: string,
   ) {
     const conversation = await this.db.conversation.findFirst({
-      where: { id, organizationId, ...advisorScope(user) },
+      where: { id, organizationId, ...scopeFor(await this.permisos.of(user), user) },
       include: {
         lead: { include: { matches: { include: { property: true }, take: 5, orderBy: { shownAt: 'desc' } } } },
         agent: true,
@@ -202,6 +211,7 @@ export class ConversationsController {
 
   @Post(':id/assign')
   @Roles('OWNER', 'ADMIN', 'SUPERVISOR')
+  @RequirePermission('conversaciones.reasignar')
   async assign(
     @TenantId() organizationId: string,
     @Param('id') id: string,
@@ -226,7 +236,7 @@ export class ConversationsController {
     @Body() dto: SendMessageDto,
   ) {
     const conversation = await this.db.conversation.findFirst({
-      where: { id: conversationId, organizationId, ...advisorScope(user) },
+      where: { id: conversationId, organizationId, ...scopeFor(await this.permisos.of(user), user) },
       include: { session: true, lead: true },
     });
     if (!conversation) throw new NotFoundException('Conversación no encontrada');
@@ -272,9 +282,64 @@ export class ConversationsController {
     return message;
   }
 
+  /**
+   * Qué hizo la IA en esta conversación.
+   *
+   * Es la respuesta a la pregunta que hace todo dueño de agencia antes de
+   * encender esto: «¿cómo sé que no está inventando?». Cada ejecución trae las
+   * herramientas que corrió, con qué las llamó y qué devolvieron, más las
+   * propiedades que terminó mostrando. Una propiedad que aparece en un mensaje
+   * y no en una consulta previa sería exactamente la señal de alarma; que la
+   * lista esté vacía significa que ese turno no afirmó nada del inventario.
+   */
+  @Get(':id/ai-runs')
+  @RequirePermission('ia.verEjecuciones')
+  async aiRuns(
+    @CurrentUser() user: AuthUser,
+    @TenantId() organizationId: string,
+    @Param('id') id: string,
+    @Query() query: ListConversationsDto,
+  ) {
+    await this.assertVisible(user, organizationId, id);
+
+    const [runs, matches] = await Promise.all([
+      this.db.aiRun.findMany({
+        where: { conversationId: id, organizationId },
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(query.take ?? 30, 100),
+        select: {
+          id: true,
+          status: true,
+          model: true,
+          latencyMs: true,
+          promptTokens: true,
+          completionTokens: true,
+          toolsInvoked: true,
+          errorMessage: true,
+          createdAt: true,
+          finishedAt: true,
+        },
+      }),
+      // Las propiedades que la IA llegó a mostrar, con el momento en que lo
+      // hizo, para poder cruzarlas contra las consultas de arriba.
+      this.db.leadPropertyMatch.findMany({
+        where: { organizationId, message: { conversationId: id } },
+        orderBy: { shownAt: 'desc' },
+        take: 50,
+        select: {
+          shownAt: true,
+          messageId: true,
+          property: { select: { id: true, title: true, price: true, currency: true, status: true } },
+        },
+      }),
+    ]);
+
+    return { runs, mostradas: matches };
+  }
+
   private async assertVisible(user: AuthUser, organizationId: string, id: string) {
     const found = await this.db.conversation.findFirst({
-      where: { id, organizationId, ...advisorScope(user) },
+      where: { id, organizationId, ...scopeFor(await this.permisos.of(user), user) },
       select: { id: true },
     });
     if (!found) throw new NotFoundException('Conversación no encontrada');

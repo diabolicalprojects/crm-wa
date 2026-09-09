@@ -29,6 +29,11 @@ import { OpenWaGateway } from './openwa.gateway';
 import { OpenWaIngestService } from './openwa-ingest.service';
 import { OpenWaWebhookController } from './openwa-webhook.controller';
 import { OrganizationsController } from './organizations.controller';
+import {
+  PermissionsController,
+  PermissionsGuard,
+  PermissionsService,
+} from './permissions';
 import { PrismaService } from './prisma.service';
 import { PropertiesController } from './properties.controller';
 import { SecretsService } from './secrets.service';
@@ -55,6 +60,7 @@ import { WhatsappController } from './whatsapp.controller';
     LeadsController,
     ConversationsController,
     AssignmentController,
+    PermissionsController,
     MediaController,
     OpenWaWebhookController,
   ],
@@ -66,6 +72,7 @@ import { WhatsappController } from './whatsapp.controller';
     OpenWaGateway,
     OpenWaIngestService,
     AssignmentService,
+    PermissionsService,
     MediaStorageService,
     MediaFetchService,
     FollowUpService,
@@ -76,6 +83,8 @@ import { WhatsappController } from './whatsapp.controller';
     CalendarSyncService,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Después del de roles: el rol es el filtro grueso y el permiso el fino.
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}

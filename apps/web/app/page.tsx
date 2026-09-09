@@ -13,6 +13,7 @@ import { Brand, Login, type User } from './screens/auth';
 import { Conversations } from './screens/conversations';
 import { Dashboard } from './screens/dashboard';
 import { Leads } from './screens/leads';
+import { Permissions } from './screens/permissions';
 import { Properties } from './screens/properties';
 
 type Nav = { key: string; label: string; icon: string; group: string; superAdmin?: boolean };
@@ -31,6 +32,7 @@ const NAV: Nav[] = [
   { key: 'agentes', label: 'Agentes de IA', icon: 'bot', group: 'Configuración' },
   { key: 'whatsapp', label: 'WhatsApp', icon: 'phone', group: 'Configuración' },
   { key: 'equipo', label: 'Equipo', icon: 'settings', group: 'Configuración' },
+  { key: 'permisos', label: 'Permisos', icon: 'shield', group: 'Configuración' },
   { key: 'auditoria', label: 'Auditoría', icon: 'shield', group: 'Configuración' },
 
   { key: 'agencias', label: 'Agencias', icon: 'building', group: 'Superadministración', superAdmin: true },
@@ -122,6 +124,7 @@ export default function Home() {
     agentes: <Agents organizationId={tenantId} />,
     whatsapp: <WhatsApp />,
     equipo: <Team organizationId={tenantId} />,
+    permisos: <Permissions />,
     auditoria: <Audit />,
     agencias: <Organizations />,
     proveedores: <AiProviders />,

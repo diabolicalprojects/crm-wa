@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Avatar, Badge, Banner, Button, Empty, Icon, PageHeader, Skeleton, useToast } from '../components/ui';
 import { Media } from '../components/media';
+import { IaTrace } from '../components/ia-trace';
 import { request, requestList } from '../lib/api';
 import { useLiveEvents } from '../lib/live';
 import type { User } from './auth';
@@ -406,6 +407,13 @@ export function Conversations({ user }: { user: User }) {
                     )) : (
                       <p className="muted" style={{ fontSize: 12.5 }}>Todavía no se recomendó ninguna.</p>
                     )}
+                  </div>
+
+                  {/* El rastro va al final del panel a propósito: se consulta
+                      cuando alguien duda de una respuesta, no todo el tiempo. */}
+                  <div className="panel-section">
+                    <h3>Qué consultó la IA</h3>
+                    <IaTrace conversationId={selectedId} />
                   </div>
                 </>
               )}

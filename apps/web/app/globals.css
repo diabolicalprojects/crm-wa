@@ -668,3 +668,51 @@ td b { font-weight: 600; }
 .media-file:hover { border-color: var(--primary); }
 .media-file b { display: block; font-size: 12.5px; word-break: break-all; }
 .media-file small { display: block; font-size: 11.5px; color: var(--text-3); }
+
+/* ---------------------------------------------------------------- permisos */
+
+.perm-head {
+  width: 100%; background: none; border: 0; border-bottom: 1px solid var(--border);
+  cursor: pointer; text-align: left;
+}
+.perm-head:hover { background: var(--surface-2); }
+
+.perm-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.perm-item {
+  display: flex; align-items: flex-start; gap: 9px; text-align: left;
+  padding: 10px 12px; border-radius: var(--r); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  transition: border-color .12s, background .12s;
+}
+.perm-item:disabled { cursor: not-allowed; opacity: .7; }
+.perm-item b { display: block; font-size: 13px; font-weight: 600; }
+.perm-item small { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+.perm-item svg { flex: 0 0 15px; margin-top: 2px; }
+
+/* De dónde viene el permiso se lee por el color, no solo por el texto: lo que
+   trae el rol y lo que se cambió a mano no son lo mismo. */
+.perm-rol { border-color: var(--border-strong); }
+.perm-rol svg { color: var(--success); }
+.perm-concedido { border-color: var(--primary-border); background: var(--primary-soft); }
+.perm-concedido svg { color: var(--primary); }
+.perm-retirado { border-color: var(--danger-border); background: var(--danger-soft); }
+.perm-retirado svg { color: var(--danger); }
+.perm-no { opacity: .62; }
+.perm-no svg { color: var(--text-3); }
+.perm-item:not(:disabled):hover { border-color: var(--primary); }
+
+/* ------------------------------------------------------- rastro de la IA */
+
+.ia-run { border-bottom: 1px solid var(--border); padding: 11px 0; }
+.ia-run:last-child { border-bottom: none; }
+.ia-run-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ia-run-top time { margin-left: auto; font-size: 11px; color: var(--text-3); }
+.ia-tool {
+  display: flex; align-items: baseline; gap: 7px; margin-top: 6px;
+  padding-left: 10px; border-left: 2px solid var(--primary-border);
+  font-size: 12.5px;
+}
+.ia-tool.fallo { border-left-color: var(--warning-border); }
+.ia-tool b { font-weight: 600; font-family: ui-monospace, monospace; font-size: 12px; }
+.ia-tool span { color: var(--text-3); }
+.ia-args { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 2px; word-break: break-word; }
