@@ -4,8 +4,8 @@ import {
   Badge, Banner, Button, DataTable, Empty, FormModal, Icon, PageHeader, useToast,
   type Column, type FieldSpec,
 } from '../components/ui';
-import { request, requestList } from '../lib/api';
-import { OPERATION_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, label, location, money } from '../lib/format';
+import { fetchText, request, requestList } from '../lib/api';
+import { LEGAL_STATUSES, OPERATION_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, label, location, money } from '../lib/format';
 
 const FIELDS: FieldSpec[] = [
   { name: 'title', label: 'Título', placeholder: 'Casa en Jesús María con patio' },
@@ -19,8 +19,22 @@ const FIELDS: FieldSpec[] = [
   { name: 'bathrooms', label: 'Baños', type: 'number', required: false, half: true },
   { name: 'parkingSpaces', label: 'Estacionamientos', type: 'number', required: false, half: true },
   { name: 'constructionM2', label: 'Construcción (m²)', type: 'number', required: false, half: true },
+  { name: 'landM2', label: 'Terreno (m²)', type: 'number', required: false, half: true },
+  { name: 'halfBathrooms', label: 'Medios baños', type: 'number', required: false, half: true },
+  { name: 'levels', label: 'Niveles', type: 'number', required: false, half: true },
+  { name: 'yearBuilt', label: 'Año de construcción', type: 'number', required: false, half: true },
+  { name: 'maintenanceFee', label: 'Cuota de mantenimiento', type: 'number', required: false, half: true },
+  { name: 'legalStatus', label: 'Situación jurídica', type: 'select', options: LEGAL_STATUSES, required: false, half: true, hint: 'Decide si el inmueble es sujeto de crédito.' },
+  { name: 'internalCode', label: 'Clave interna', required: false, half: true, hint: 'La tuya, con la que tu equipo busca.' },
   { name: 'publicUrl', label: 'Enlace público', type: 'url', required: false, hint: 'La IA puede compartirlo con el prospecto.' },
+  { name: 'videoUrl', label: 'Video', type: 'url', required: false, half: true },
+  { name: 'tourUrl', label: 'Recorrido virtual', type: 'url', required: false, half: true },
   { name: 'description', label: 'Descripción', type: 'textarea', required: false },
+  // Lo privado va al final y se dice que lo es, para que nadie lo capture
+  // creyendo que el prospecto lo va a ver.
+  { name: 'sharedCommission', label: 'Comisión compartida (%)', type: 'number', required: false, half: true, hint: 'Lo que le ofreces a quien traiga al comprador.' },
+  { name: 'commissionPercent', label: 'Tu comisión (%)', type: 'number', required: false, half: true, hint: 'Privada. No la ve la IA ni quien no tenga permiso.' },
+  { name: 'privateNotes', label: 'Notas internas', type: 'textarea', required: false, hint: 'Solo para tu equipo. Nunca llegan al agente de IA.' },
 ];
 
 export function Properties() {
@@ -53,6 +67,26 @@ export function Properties() {
     const timer = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(timer);
   }, [load, search]);
+
+  /**
+   * La descarga pasa por `fetch` autenticado y no por un enlace directo: la
+   * ruta exige token y agencia en encabezados, y va detrás de su propio
+   * permiso porque bajarse el catálogo completo es lo que hace un asesor el
+   * día antes de irse.
+   */
+  async function descargar() {
+    try {
+      const csv = await fetchText('/properties/export');
+      const blob = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+      const enlace = document.createElement('a');
+      enlace.href = blob;
+      enlace.download = `inventario-${new Date().toISOString().slice(0, 10)}.csv`;
+      enlace.click();
+      setTimeout(() => URL.revokeObjectURL(blob), 10_000);
+    } catch (problem) {
+      toast(problem instanceof Error ? problem.message : 'No se pudo descargar', 'error');
+    }
+  }
 
   async function importFile(input: HTMLInputElement) {
     if (!input.files?.[0]) return;
@@ -111,6 +145,7 @@ export function Properties() {
               onChange={(event) => importFile(event.currentTarget)}
             />
             <Button icon="upload" onClick={() => file.current?.click()}>Importar CSV o Excel</Button>
+            <Button icon="list" onClick={descargar}>Descargar</Button>
             <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Nueva propiedad</Button>
           </>
         }

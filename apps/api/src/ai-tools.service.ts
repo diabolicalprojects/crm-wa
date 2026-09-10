@@ -284,6 +284,15 @@ export class AiToolsService {
     };
   }
 
+  /**
+   * La ficha que ve el agente.
+   *
+   * El objeto se arma campo por campo y **nunca** con propagación del registro:
+   * el agente conversa con el prospecto, así que un `...property` filtraría al
+   * dueño del inmueble, la comisión de la agencia y las notas internas en
+   * cuanto alguien agregue una columna nueva a la tabla. Hay una prueba que
+   * falla si alguno de esos tres aparece aquí.
+   */
   private async getPropertyDetails(context: ToolContext, input: any): Promise<ToolOutcome> {
     const property = await this.db.property.findFirst({
       // El filtro por tenant es del contexto, no del argumento del modelo.
@@ -314,8 +323,15 @@ export class AiToolsService {
         parkingSpaces: property.parkingSpaces,
         constructionM2: property.constructionM2 ? Number(property.constructionM2) : null,
         landM2: property.landM2 ? Number(property.landM2) : null,
+        halfBathrooms: property.halfBathrooms,
+        levels: property.levels,
+        yearBuilt: property.yearBuilt,
+        maintenanceFee: property.maintenanceFee ? Number(property.maintenanceFee) : null,
+        legalStatus: property.legalStatus,
         amenities: property.amenities,
         publicUrl: property.publicUrl,
+        videoUrl: property.videoUrl,
+        tourUrl: property.tourUrl,
         availableFrom: property.availableFrom,
       }),
     };

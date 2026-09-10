@@ -95,13 +95,13 @@ export interface ToolTrace {
 const MAX_ARG_CHARS = 120;
 
 export function traceOf(
-  call: { name: string; arguments?: unknown },
+  call: { name: string; input?: unknown },
   outcome: { result: string; recommendedPropertyIds?: string[] },
 ): ToolTrace {
   const args =
-    call.arguments && typeof call.arguments === 'object' && !Array.isArray(call.arguments)
+    call.input && typeof call.input === 'object' && !Array.isArray(call.input)
       ? Object.fromEntries(
-          Object.entries(call.arguments as Record<string, unknown>)
+          Object.entries(call.input as Record<string, unknown>)
             .filter(([, v]) => v !== undefined && v !== null && v !== '')
             .slice(0, 12)
             .map(([k, v]) => [k, recortar(v)]),

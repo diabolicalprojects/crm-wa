@@ -6,7 +6,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { OperationType, Prisma, PropertyType } from '@prisma/client';
+import { LegalStatus, OperationType, Prisma, PropertyType } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import { Roles } from './auth';
 import { RequirePermission } from './permissions';
@@ -44,11 +44,38 @@ const COLUMNS: Record<string, string[]> = {
   landM2: ['landm2', 'terreno', 'm2terreno', 'superficie'],
   amenities: ['amenities', 'amenidades', 'caracteristicas', 'características'],
   publicUrl: ['publicurl', 'url', 'enlace', 'liga'],
+  // La ficha completa (§14.1). El archivo de una agencia trae su propia
+  // nomenclatura, así que se aceptan los nombres que de verdad se escriben.
+  internalCode: ['internalcode', 'claveinterna', 'clavepropia', 'codigo', 'código'],
+  halfBathrooms: ['halfbathrooms', 'mediosbanos', 'mediosbaños', 'mediobano', 'mediobaño'],
+  levels: ['levels', 'niveles', 'pisos', 'plantas'],
+  yearBuilt: ['yearbuilt', 'año', 'ano', 'antiguedad', 'antigüedad', 'añoconstruccion'],
+  maintenanceFee: ['maintenancefee', 'mantenimiento', 'cuotamantenimiento'],
+  legalStatus: ['legalstatus', 'situacionjuridica', 'situaciónjurídica', 'juridico', 'jurídico', 'escrituras'],
+  videoUrl: ['videourl', 'video'],
+  tourUrl: ['toururl', 'recorrido', 'recorridovirtual', 'tour'],
+  sharedCommission: ['sharedcommission', 'comisioncompartida', 'comisióncompartida'],
+  commissionPercent: ['commissionpercent', 'comision', 'comisión', 'micomision'],
+};
+
+/** Situación jurídica, con las palabras que se usan en México. */
+const LEGAL_ALIASES: Record<string, LegalStatus> = {
+  escriturado: 'ESCRITURADO', escrituras: 'ESCRITURADO', escritura: 'ESCRITURADO',
+  ejidal: 'EJIDAL', ejido: 'EJIDAL',
+  cesion: 'CESION_DERECHOS', cesiondederechos: 'CESION_DERECHOS', derechos: 'CESION_DERECHOS',
+  infonavit: 'INFONAVIT_FOVISSSTE', fovissste: 'INFONAVIT_FOVISSSTE',
+  posesion: 'POSESION',
+  tramite: 'EN_TRAMITE', entramite: 'EN_TRAMITE',
+  otro: 'OTRO',
 };
 
 const OPERATION_ALIASES: Record<string, OperationType> = {
   sale: 'SALE', venta: 'SALE', vender: 'SALE', compra: 'SALE',
   rent: 'RENT', renta: 'RENT', rentar: 'RENT', alquiler: 'RENT',
+  presale: 'PRESALE', preventa: 'PRESALE',
+  development: 'DEVELOPMENT', desarrollo: 'DEVELOPMENT', proyecto: 'DEVELOPMENT',
+  temporary: 'TEMPORARY', temporal: 'TEMPORARY', vacacional: 'TEMPORARY',
+  auction: 'AUCTION', remate: 'AUCTION', adjudicado: 'AUCTION',
 };
 
 const TYPE_ALIASES: Record<string, PropertyType> = {
@@ -63,6 +90,15 @@ const TYPE_ALIASES: Record<string, PropertyType> = {
 export interface NormalizedRow {
   data: Prisma.PropertyUncheckedCreateInput;
   error?: string;
+}
+
+/** «Situación Jurídica» y «situacion juridica» son el mismo dato. */
+function sinAcentos(value: string | undefined): string {
+  return (value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\s_-]/g, '');
 }
 
 function pick(row: Record<string, unknown>, field: string): string | undefined {
@@ -94,7 +130,12 @@ export function normalizeRow(
 
   if (!title) return { data: {} as never, error: 'falta el título' };
   if (price === undefined) return { data: {} as never, error: 'precio inválido o ausente' };
-  if (!operation) return { data: {} as never, error: 'operación debe ser venta o renta' };
+  if (!operation) {
+    return {
+      data: {} as never,
+      error: 'operación no reconocida (venta, renta, preventa, desarrollo, temporal o remate)',
+    };
+  }
   if (!propertyType) return { data: {} as never, error: 'tipo de propiedad no reconocido' };
 
   const amenities = (pick(row, 'amenities') ?? '')
@@ -122,6 +163,16 @@ export function normalizeRow(
       parkingSpaces: toNumber(pick(row, 'parkingSpaces')),
       constructionM2: toNumber(pick(row, 'constructionM2')),
       landM2: toNumber(pick(row, 'landM2')),
+      internalCode: pick(row, 'internalCode'),
+      halfBathrooms: toNumber(pick(row, 'halfBathrooms')),
+      levels: toNumber(pick(row, 'levels')),
+      yearBuilt: toNumber(pick(row, 'yearBuilt')),
+      maintenanceFee: toNumber(pick(row, 'maintenanceFee')),
+      legalStatus: LEGAL_ALIASES[sinAcentos(pick(row, 'legalStatus'))],
+      videoUrl: pick(row, 'videoUrl'),
+      tourUrl: pick(row, 'tourUrl'),
+      sharedCommission: toNumber(pick(row, 'sharedCommission')),
+      commissionPercent: toNumber(pick(row, 'commissionPercent')),
       amenities,
       publicUrl: pick(row, 'publicUrl'),
     },

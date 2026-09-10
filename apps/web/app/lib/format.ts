@@ -11,6 +11,29 @@ export type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'prim
 export const OPERATION_TYPES = [
   { value: 'SALE', label: 'Venta' },
   { value: 'RENT', label: 'Renta' },
+  { value: 'PRESALE', label: 'Preventa' },
+  { value: 'DEVELOPMENT', label: 'Desarrollo' },
+  { value: 'TEMPORARY', label: 'Renta temporal' },
+  { value: 'AUCTION', label: 'Remate' },
+];
+
+/** Los valores del mercado mexicano: son los que deciden si hay crédito. */
+export const LEGAL_STATUSES = [
+  { value: 'ESCRITURADO', label: 'Escriturado' },
+  { value: 'EJIDAL', label: 'Ejidal' },
+  { value: 'CESION_DERECHOS', label: 'Cesión de derechos' },
+  { value: 'INFONAVIT_FOVISSSTE', label: 'Infonavit / Fovissste' },
+  { value: 'POSESION', label: 'Posesión' },
+  { value: 'EN_TRAMITE', label: 'En trámite' },
+  { value: 'OTRO', label: 'Otro' },
+];
+
+export const CONTACT_KINDS = [
+  { value: 'OWNER', label: 'Propietario' },
+  { value: 'BUYER', label: 'Comprador o arrendatario' },
+  { value: 'BROKER', label: 'Colega de otra agencia' },
+  { value: 'NOTARY', label: 'Notario' },
+  { value: 'OTHER', label: 'Otro' },
 ];
 
 export const PROPERTY_TYPES = [
@@ -64,7 +87,12 @@ const LABELS: Record<string, string> = {
   REQUESTED: 'Solicitada', SCHEDULED: 'Agendada', CONFIRMED: 'Confirmada',
   COMPLETED: 'Realizada', CANCELLED: 'Cancelada', NO_SHOW: 'No asistió',
   // Propiedades
-  SALE: 'Venta', RENT: 'Renta',
+  SALE: 'Venta', RENT: 'Renta', PRESALE: 'Preventa', DEVELOPMENT: 'Desarrollo',
+  TEMPORARY: 'Renta temporal', AUCTION: 'Remate',
+  ESCRITURADO: 'Escriturado', EJIDAL: 'Ejidal', CESION_DERECHOS: 'Cesión de derechos',
+  INFONAVIT_FOVISSSTE: 'Infonavit / Fovissste', POSESION: 'Posesión',
+  EN_TRAMITE: 'En trámite', OTRO: 'Otro',
+  OWNER_CONTACT: 'Propietario', BUYER: 'Comprador', BROKER: 'Colega', NOTARY: 'Notario',
   HOUSE: 'Casa', APARTMENT: 'Departamento', LAND: 'Terreno',
   COMMERCIAL: 'Local', OFFICE: 'Oficina', OTHER: 'Otro',
   AVAILABLE: 'Disponible', RESERVED: 'Apartada', SOLD: 'Vendida',

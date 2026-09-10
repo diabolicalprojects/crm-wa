@@ -15,6 +15,7 @@ import { CalendarSyncService } from './calendar-sync.service';
 import { FollowUpService } from './follow-up.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { AutomationService } from './automation.service';
+import { ContactsController } from './contacts.controller';
 import { ConversationsController } from './conversations.controller';
 import { DashboardController } from './dashboard.controller';
 import { EventsController } from './events.controller';
@@ -60,6 +61,7 @@ import { WhatsappController } from './whatsapp.controller';
     WhatsappController,
     PropertiesController,
     LeadsController,
+    ContactsController,
     ConversationsController,
     AssignmentController,
     PermissionsController,

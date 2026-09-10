@@ -88,6 +88,21 @@ export async function fetchBlobUrl(path: string): Promise<string> {
   return URL.createObjectURL(await response.blob());
 }
 
+/** Igual que `request` pero para respuestas que no son JSON, como un CSV. */
+export async function fetchText(path: string): Promise<string> {
+  const jwt = token();
+  const organizationId = typeof window === 'undefined' ? '' : localStorage.getItem('crm_org') || '';
+  const response = await fetch(API + path, {
+    headers: {
+      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+      ...(organizationId ? { 'x-organization-id': organizationId } : {}),
+    },
+  });
+  const texto = await response.text();
+  if (!response.ok) throw new ApiError(apiErrorMessage(texto, response.status), response.status);
+  return texto;
+}
+
 /** Endpoints paginados devuelven `{items, nextCursor}`; el resto, un arreglo. */
 export async function requestList<T = any>(path: string): Promise<T[]> {
   const data = await request<T[] | { items: T[] }>(path);

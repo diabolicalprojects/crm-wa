@@ -11,6 +11,7 @@ import { Appointments } from './screens/appointments';
 import { Assignment } from './screens/assignment';
 import { Calendars, GoogleSetup } from './screens/calendar';
 import { Brand, Login, type User } from './screens/auth';
+import { Contacts } from './screens/contacts';
 import { Conversations } from './screens/conversations';
 import { Dashboard } from './screens/dashboard';
 import { Leads } from './screens/leads';
@@ -24,6 +25,7 @@ const NAV: Nav[] = [
   { key: 'resumen', label: 'Resumen', icon: 'home', group: 'Operación' },
   { key: 'conversaciones', label: 'Conversaciones', icon: 'chat', group: 'Operación' },
   { key: 'prospectos', label: 'Prospectos', icon: 'users', group: 'Operación' },
+  { key: 'contactos', label: 'Contactos', icon: 'list', group: 'Operación' },
   { key: 'visitas', label: 'Visitas', icon: 'calendar', group: 'Operación' },
   { key: 'asignacion', label: 'Asignación', icon: 'users', group: 'Operación' },
 
@@ -121,6 +123,7 @@ export default function Home() {
     resumen: <Dashboard onOpenSessions={() => setPage('whatsapp')} />,
     conversaciones: <Conversations user={user} />,
     prospectos: <Leads />,
+    contactos: <Contacts />,
     visitas: <Appointments organizationId={tenantId} />,
     asignacion: <Assignment />,
     propiedades: <Properties />,

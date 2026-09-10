@@ -60,7 +60,7 @@ describe('CRUD del CRM aislado por agencia', () => {
   });
 
   it('crea propiedades con enums y tipos convertidos', async () => {
-    const controller = new PropertiesController(db);
+    const controller = new PropertiesController(db, { of: async () => new Set(['inventario.verPropietarios', 'inventario.editarDeOtros']) } as any);
     await controller.create('org-1', {
       title: 'Casa en el centro',
       operationType: 'SALE',
@@ -84,7 +84,7 @@ describe('CRUD del CRM aislado por agencia', () => {
   it('pagina propiedades por cursor y devuelve el siguiente', async () => {
     const rows = Array.from({ length: 3 }, (_, index) => ({ id: `p${index}` }));
     db.property.findMany.mockResolvedValue(rows);
-    const result = await new PropertiesController(db).list('org-1', { take: 2 } as any);
+    const result = await new PropertiesController(db, { of: async () => new Set(['inventario.verPropietarios', 'inventario.editarDeOtros']) } as any).list({ id: 'u1' } as any, 'org-1', { take: 2 } as any);
     expect(result.items).toHaveLength(2);
     expect(result.nextCursor).toBe('p1');
     expect(db.property.findMany).toHaveBeenCalledWith(
@@ -93,7 +93,7 @@ describe('CRUD del CRM aislado por agencia', () => {
   });
 
   it('desactiva propiedades sin borrarlas', async () => {
-    await new PropertiesController(db).remove('org-1', 'p1');
+    await new PropertiesController(db, { of: async () => new Set(['inventario.verPropietarios', 'inventario.editarDeOtros']) } as any).remove('org-1', 'p1');
     expect(db.property.update).toHaveBeenCalledWith({
       where: { id: 'p1', organizationId: 'org-1' },
       data: { status: 'INACTIVE' },

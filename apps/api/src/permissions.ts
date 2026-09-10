@@ -43,7 +43,11 @@ export const PERMISSIONS = {
   'prospectos.verTodos': 'Ver los prospectos de toda la agencia',
   'prospectos.editarDeOtros': 'Editar prospectos asignados a otra persona',
   'inventario.administrar': 'Crear, editar y borrar propiedades',
+  'inventario.editarDeOtros': 'Editar propiedades a cargo de otra persona',
+  'inventario.verPropietarios': 'Ver el dueño de un inmueble y sus datos',
+  'inventario.exportar': 'Descargar el inventario en un archivo',
   'inventario.importar': 'Importar inventario desde CSV o Excel',
+  'contactos.administrar': 'Ver y editar la libreta de contactos',
   'agentes.administrar': 'Crear y configurar agentes de IA',
   'canales.administrar': 'Conectar y desconectar números de WhatsApp',
   'equipo.administrar': 'Dar de alta, editar y quitar personas',
@@ -73,9 +77,17 @@ export const ROLE_DEFAULTS: Record<string, Permission[]> = {
     'prospectos.verTodos',
     'prospectos.editarDeOtros',
     'inventario.administrar',
+    'inventario.editarDeOtros',
     'inventario.importar',
+    'contactos.administrar',
     'ia.verEjecuciones',
   ],
+  /**
+   * Un asesor no trae nada de fábrica, y en particular **no** trae
+   * `inventario.verPropietarios` ni `inventario.exportar`: son los dos que
+   * responden a «el asesor que se va y se lleva la cartera». Concederlos es una
+   * decisión consciente de la agencia, persona por persona.
+   */
   ADVISOR: [],
 };
 

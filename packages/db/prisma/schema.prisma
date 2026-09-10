@@ -109,6 +109,37 @@ enum PropertyStatus {
 enum OperationType {
   SALE
   RENT
+  /// Se vende antes de estar construida.
+  PRESALE
+  /// Unidad dentro de un desarrollo en comercialización.
+  DEVELOPMENT
+  /// Renta temporal o vacacional, por noches o semanas.
+  TEMPORARY
+  /// Remate bancario o judicial.
+  AUCTION
+}
+
+/// Situación jurídica del inmueble. Los valores son los del mercado mexicano
+/// porque son los que el prospecto pregunta y los que deciden si hay crédito.
+enum LegalStatus {
+  ESCRITURADO
+  EJIDAL
+  CESION_DERECHOS
+  INFONAVIT_FOVISSSTE
+  POSESION
+  EN_TRAMITE
+  OTRO
+}
+
+/// Qué es esa persona para la agencia. Separado del prospecto a propósito: el
+/// prospecto es una oportunidad, el contacto es una persona, y un propietario o
+/// un notario no tienen por qué tener una oportunidad inventada.
+enum ContactKind {
+  OWNER
+  BUYER
+  BROKER
+  NOTARY
+  OTHER
 }
 
 enum PropertyType {
@@ -297,6 +328,7 @@ model Organization {
   appointments    Appointment[]
   mediaAssets     MediaAsset[]
   propertySources PropertySource[]
+  contacts        Contact[]
   assignments     AgentSessionAssignment[]
   aiRuns          AiRun[]
   webhookEvents   WebhookEvent[]
@@ -324,6 +356,8 @@ model User {
 
   memberships           OrganizationMember[]
   notifications         Notification[]
+  createdContacts       Contact[]                @relation("ContactAuthor")
+  responsibleProperties Property[]               @relation("PropertyResponsible")
   responsibleAgents     Agent[]
   invitationsSent       Invitation[]             @relation("InvitationSender")
   assignedAppointments  Appointment[]
@@ -590,6 +624,36 @@ model Message {
 // Inventario inmobiliario
 // ---------------------------------------------------------------------------
 
+/// Una persona de la libreta de la agencia.
+///
+/// Existe aparte de `Lead` porque son cosas distintas: aquí vive la persona
+/// —el dueño de la casa, el notario, el colega de otra inmobiliaria— y en
+/// `Lead` vive la oportunidad. Fusionarlos obliga a inventarle una oportunidad
+/// a quien no la tiene.
+model Contact {
+  id             String      @id @default(uuid())
+  organizationId String
+  name           String
+  phone          String?
+  email          String?
+  kind           ContactKind @default(OTHER)
+  company        String?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User?        @relation("ContactAuthor", fields: [createdById], references: [id])
+  ownedProperties Property[]   @relation("PropertyOwner")
+
+  /// PostgreSQL admite varios NULL en un índice único, así que un contacto sin
+  /// teléfono no choca con otro.
+  @@unique([organizationId, phone])
+  @@index([organizationId, kind])
+  @@index([organizationId, name])
+}
+
 model Property {
   id                String         @id @default(uuid())
   organizationId    String
@@ -617,21 +681,56 @@ model Property {
   amenities         String[]
   publicUrl         String?
   availableFrom     DateTime?      @db.Date
+
+  /// El asesor a cargo. Sin esto no existe «la propiedad de otro», y por tanto
+  /// tampoco los permisos que la acotan.
+  responsibleUserId String?
+  /// Quién es el dueño del inmueble. **Confidencial**: es el activo que una
+  /// agencia no quiere que se lleve un asesor que se va, así que solo lo ve
+  /// quien tiene el permiso.
+  ownerContactId    String?
+  /// La nomenclatura propia de la agencia, con la que su equipo busca.
+  internalCode      String?
+  halfBathrooms     Int?
+  levels            Int?
+  yearBuilt         Int?
+  maintenanceFee    Decimal?     @db.Decimal(12, 2)
+  legalStatus       LegalStatus?
+  videoUrl          String?
+  tourUrl           String?
+  /// Lo que el equipo necesita saber y al cliente no se le dice. **Nunca llega
+  /// al agente de IA.**
+  privateNotes      String?
+  /// Lo que cobra la agencia. Privado.
+  commissionPercent Decimal?     @db.Decimal(5, 2)
+  /// Lo que se le ofrece a quien traiga al comprador. Es el campo del que
+  /// cuelga toda colaboración entre agencias.
+  sharedCommission  Decimal?     @db.Decimal(5, 2)
+  exclusivity       Boolean      @default(false)
+  exclusivityUntil  DateTime?    @db.Date
+  /// Si la dirección exacta se publica hacia afuera. Se decide por propiedad.
+  showExactAddress  Boolean      @default(false)
+  /// Llave de la ficha pública compartible. Nula mientras no se comparta.
+  shareToken        String?      @unique
   contentHash       String?
   lastSeenAt        DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
-  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  propertySource PropertySource?     @relation(fields: [propertySourceId], references: [id])
-  media          PropertyMedia[]
-  appointments   Appointment[]
-  matches        LeadPropertyMatch[]
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertySource  PropertySource?     @relation(fields: [propertySourceId], references: [id])
+  responsibleUser User?               @relation("PropertyResponsible", fields: [responsibleUserId], references: [id])
+  ownerContact    Contact?            @relation("PropertyOwner", fields: [ownerContactId], references: [id])
+  media           PropertyMedia[]
+  appointments    Appointment[]
+  matches         LeadPropertyMatch[]
 
   @@unique([organizationId, propertySourceId, externalReference])
+  @@unique([organizationId, internalCode])
   @@index([organizationId, status, operationType])
   @@index([organizationId, city])
   @@index([organizationId, price])
+  @@index([organizationId, responsibleUserId])
 }
 
 model PropertyMedia {
