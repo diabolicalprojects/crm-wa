@@ -79,7 +79,7 @@ implementación de `MediaStorageService`.
 > llevaba `messageId/mediaId` cuando la real es `chatId/messageId`. Las dos
 > habrían fallado siempre.
 
-### A2. Reglas de asignación de prospectos · **alto valor, bajo costo**
+### A2. Reglas de asignación de prospectos · ✅ **hecho** (`ab8c2e1`)
 
 NOCNOK tiene cinco modos —responsable del inmueble, líder de grupo, carrusel,
 guardia, propietario— y encima una regla que manda sobre todas: **mantener al
@@ -102,9 +102,9 @@ El evento que vende —«prospecto nuevo»— sale por WhatsApp, que es el canal
 el que el dueño quiere enterarse sin abrir nada. Solo el primer mensaje de cada
 hilo, para que el canal no se vuelva una conversación paralela con el asesor.
 
-### A4. La ficha de propiedad, completa · **medio-alto**
+### A4. La ficha de propiedad, completa · ✅ **hecho** (`6e025d9`)
 
-Comparando campo por campo, a `Property` le faltan:
+Lo que faltaba, y por qué importaba cada campo:
 
 | Falta | Por qué importa |
 | --- | --- |
@@ -138,22 +138,33 @@ prueba recorre el código y falla si alguien mete al catálogo un permiso que no
 bloquea nada: un permiso que no muerde le promete al dueño un control que no
 tiene.
 
-### A6. Contactos separados del pipeline · **medio**
+### A6. Contactos separados del pipeline · ✅ **hecho** (`6e025d9`)
 
 NOCNOK separa deliberadamente el **Directorio** —donde vive la persona— de
-**Interesados** —donde vive la oportunidad—. Horizonte los fusiona en `Lead`.
-La consecuencia práctica: no se puede registrar a un propietario, a un notario
-o a un colega sin inventarle una oportunidad.
+**Interesados** —donde vive la oportunidad—. Horizonte los fusionaba en `Lead`,
+y eso obligaba a inventarle una oportunidad a un propietario, a un notario o a
+un colega, ensuciando el embudo con registros que nunca iban a cerrar.
 
-### A7. Reporte al propietario y ficha compartible · **alto valor comercial**
+Ya existe `Contact`, con el teléfono único por agencia: dos fichas del mismo
+dueño son un error, no un caso de uso.
 
-Un PDF con el avance de la propiedad, listo para mandar por WhatsApp, y la
-ficha con la marca del asesor. Es lo que el asesor enseña a su cliente y lo que
-hace que el CRM se note hacia afuera. Barato de construir, muy visible.
+### A7. Reporte al propietario y ficha compartible · ✅ **hecho** (`e071252`)
 
-### A8. Etiquetas · **bajo costo**
+Es lo que el asesor enseña a su cliente y a su propietario, y lo único que hace
+que el CRM se note fuera del equipo.
 
-Catálogos propios para prospectos, contactos y propiedades.
+La ficha pública vive detrás de un enlace sin sesión, que la convierte en la
+superficie más expuesta del sistema: lista blanca campo por campo, llave
+aleatoria que no deriva del identificador, y la calle exacta solo si la agencia
+lo decidió para esa propiedad.
+
+El reporte cuenta **personas distintas**, no veces. Enseñarle la misma casa
+tres veces a la misma persona no son tres interesados.
+
+### A8. Etiquetas · **pendiente, bajo costo**
+
+Catálogos propios para prospectos, contactos y propiedades. Es lo único que
+queda del montón A.
 
 ---
 
@@ -178,10 +189,11 @@ detectada en la ingesta, y la capacidad del agente de negarse a insistir cuando
 no tiene nada que aportar.
 
 Faltan los otros dos disparadores del párrafo de arriba: el recordatorio de
-visita y el aviso de cambio de precio. La infraestructura ya está; son reglas
-nuevas sobre el mismo barrido.
+visita y el aviso de cambio de precio. La infraestructura ya está —el barrido,
+las guardas y la baja voluntaria sirven igual—; son reglas nuevas, no un
+sistema nuevo.
 
-### B2. Agendado confirmado, no solicitado · **NOCNOK lo tiene en «Próximamente»**
+### B2. Agendado confirmado · ✅ **hecho** (`573ea29`) · NOCNOK lo tiene en «Próximamente»
 
 Hoy la IA registra una **solicitud** de visita y un asesor la aprueba —una
 decisión correcta contra la alucinación—. El siguiente paso es que, cuando la
@@ -258,9 +270,12 @@ sé que no está inventando?» y a «¿y cómo evito que mi asesor se lleve todo
 Queda una parte de A5 atada al Tramo 3: los permisos sobre la propiedad no se
 pueden exigir hasta que la propiedad tenga dueño.
 
-**Tramo 3 — que la ficha aguante el mercado** (A4, A6, A7, B2)
+**Tramo 3 — que la ficha aguante el mercado** (A4, A6, A7, B2) · ✅ **hecho el
+9 de septiembre de 2026, commits `6e025d9`, `e071252` y `573ea29`**
 La propiedad completa con comisión y exclusividad, contactos separados de
-oportunidades, el reporte al propietario, y el agendado confirmado.
+oportunidades, el reporte al propietario, y el agendado confirmado. Arrastró
+además la deuda de A5: los tres permisos de inventario que el Tramo 2 no pudo
+exigir porque no existía lo que gateaban.
 
 Después de eso —y solo después— tienen sentido el feed a portales gratuitos, el
 sitio web y la bolsa opt-in.

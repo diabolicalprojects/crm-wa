@@ -1,7 +1,7 @@
 # Estado del proyecto — Horizonte CRM
 
 > Documento de contexto para retomar el trabajo. Última actualización:
-> 9 de septiembre de 2026, commit `8bfa453`.
+> 10 de septiembre de 2026, commit `573ea29`.
 >
 > Complementa, no reemplaza:
 > - [`especificacion-crm-ia-openwa-inmobiliaria.md`](../especificacion-crm-ia-openwa-inmobiliaria.md) — qué debe ser el producto
@@ -81,6 +81,14 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
 - **Rastro de la IA**: qué herramienta corrió, con qué y qué devolvió,
   consultable desde la conversación.
 - **Avisos** en la consola y por WhatsApp, con preferencia por persona.
+- **Contactos** separados de los prospectos: aquí la persona, allá la
+  oportunidad.
+- **Ficha de propiedad completa**: seis operaciones, situación jurídica,
+  comisión propia y compartida, exclusividad, clave interna.
+- **Ficha pública compartible** por enlace sin sesión, y **reporte al
+  propietario** imprimible.
+- **Agendado confirmado** contra los huecos reales del calendario del asesor.
+  Apagado por omisión y por agente.
 
 ### Pendiente de verificar
 
@@ -110,11 +118,18 @@ Dokploy* durante dos minutos. Los despliegues tardan más, a propósito.
   `PropertySyncRun`; falta el motor de mapeo y el worker.
 - **Avisos por correo.** No hay SMTP en esta infraestructura. Los otros dos
   canales sí están.
-- **Los permisos sobre la propiedad** —editar la de otro, ver a su propietario,
-  exportar el inventario— dependen de que `Property` tenga dueño, que es
-  Tramo 3.
+- **Etiquetas** propias para prospectos, contactos y propiedades.
+- **Analista en lenguaje natural** sobre las métricas de la agencia.
+- **Modo de asignación «líder de grupo»**: necesita el concepto de equipo, que
+  todavía no existe en el modelo.
+- **Los otros dos disparadores del seguimiento**: recordatorio de visita y
+  aviso de cambio de precio.
 - **La ficha de propiedad completa**: comisión, exclusividad, las seis
   operaciones, clave interna y propietario confidencial (montón A4).
+- **Evaluaciones antialucinación** (§22.4): el corpus, los calificadores y el
+  ejecutor ya están (`apps/api/src/evals`). Falta **correrlas contra un modelo
+  real**: `EVAL_KIND=... EVAL_API_KEY=... npm run evals`. Los calificadores sí
+  corren en cada corrida de pruebas, porque no llaman a nadie.
 - **Pruebas E2E** del guion completo de §22.3 y evaluaciones antialucinación
   de §22.4.
 

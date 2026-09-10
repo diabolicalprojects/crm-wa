@@ -25,7 +25,9 @@ export default defineConfig({
       // archivos grandes sin pruebas —el worker, el adaptador de OpenWA— así
       // que medía lo que ya estaba cubierto. Estos números son bajos y honestos:
       // súbelos conforme se agreguen pruebas, nunca bajes el piso.
-      thresholds: { lines: 48, statements: 48, functions: 48, branches: 41 },
+      // Trinquete: sube cuando sube la cobertura real, nunca baja. Se deja
+      // un punto de margen para que un refactor menor no rompa la corrida.
+      thresholds: { lines: 52, statements: 52, functions: 50, branches: 44 },
     },
   },
 });
