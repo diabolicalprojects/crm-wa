@@ -210,6 +210,41 @@ export class GoogleCalendarService {
     };
   }
 
+  /**
+   * Los intervalos ocupados de un calendario.
+   *
+   * Google los da agregados, sin decir de qué son: para proponer un hueco basta
+   * saber que está tomado, y no leer el contenido de la agenda de nadie es la
+   * postura correcta con los datos de un asesor.
+   */
+  async freeBusy(
+    connectionId: string,
+    calendarId: string,
+    desde: Date,
+    hasta: Date,
+  ): Promise<{ inicio: Date; fin: Date }[]> {
+    const token = await this.accessTokenFor(connectionId);
+    const respuesta: any = await this.call(token, '/freeBusy', {
+      method: 'POST',
+      body: JSON.stringify({
+        timeMin: desde.toISOString(),
+        timeMax: hasta.toISOString(),
+        items: [{ id: calendarId }],
+      }),
+    });
+
+    const calendario = respuesta?.calendars?.[calendarId];
+    // Google reporta los errores por calendario dentro de la respuesta, con
+    // 200. Tratarlos como «sin ocupación» sería ofrecer horas tomadas.
+    if (calendario?.errors?.length) {
+      throw new Error(calendario.errors.map((e: any) => e.reason).join(', '));
+    }
+    return (calendario?.busy ?? []).map((tramo: any) => ({
+      inicio: new Date(tramo.start),
+      fin: new Date(tramo.end),
+    }));
+  }
+
   async createEvent(connectionId: string, calendarId: string, input: CalendarEventInput) {
     const token = await this.accessTokenFor(connectionId);
     const event: any = await this.call(token, `/calendars/${encodeURIComponent(calendarId)}/events`, {

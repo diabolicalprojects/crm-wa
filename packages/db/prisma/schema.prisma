@@ -435,13 +435,19 @@ model Agent {
   /// dejó de contestar. **Apagado por omisión a propósito**: mandar mensajes no
   /// solicitados en nombre de una agencia es su decisión, no la nuestra, y es
   /// la vía más rápida a que WhatsApp restrinja el número.
-  followUpEnabled     Boolean  @default(false)
+  followUpEnabled     Boolean @default(false)
   /// Horas de silencio antes de insistir.
-  followUpDelayHours  Int      @default(48)
+  followUpDelayHours  Int     @default(48)
   /// Cuántas veces como máximo, en toda la vida de la conversación.
-  followUpMaxAttempts Int      @default(2)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  followUpMaxAttempts Int     @default(2)
+
+  /// Deja que el agente confirme una visita cuando pudo comprobar que la hora
+  /// está libre en la agenda del asesor. **Apagado por omisión**: sin
+  /// calendario vinculado no hay nada que comprobar, y confirmar a ciegas es
+  /// peor que solicitar.
+  autoConfirmVisits Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   responsibleUser User                     @relation(fields: [responsibleUserId], references: [id])

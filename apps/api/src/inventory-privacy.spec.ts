@@ -61,6 +61,7 @@ describe('lo que ve el agente de IA', () => {
         },
         leadPropertyMatch: { createMany: vi.fn() },
       } as any,
+      { huecos: async () => null } as any,
     );
 
   const contexto = {

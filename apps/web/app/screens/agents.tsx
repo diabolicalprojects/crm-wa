@@ -16,9 +16,10 @@ import { OPERATION_MODES, label, phone, relative } from '../lib/format';
  * le dice nada útil a quien lo está capturando.
  */
 function conTipos(values: Record<string, string>) {
-  const { followUpEnabled, followUpDelayHours, followUpMaxAttempts, ...resto } = values;
+  const { followUpEnabled, followUpDelayHours, followUpMaxAttempts, autoConfirmVisits, ...resto } = values;
   return {
     ...resto,
+    ...(autoConfirmVisits !== undefined ? { autoConfirmVisits: autoConfirmVisits === 'true' } : {}),
     ...(followUpEnabled !== undefined ? { followUpEnabled: followUpEnabled === 'true' } : {}),
     ...(followUpDelayHours ? { followUpDelayHours: Number(followUpDelayHours) } : {}),
     ...(followUpMaxAttempts ? { followUpMaxAttempts: Number(followUpMaxAttempts) } : {}),
@@ -145,6 +146,16 @@ export function Agents({ organizationId }: { organizationId?: string }) {
       name: 'followUpMaxAttempts', label: 'Veces que insiste', required: false,
       type: 'number' as const, defaultValue: String(agent?.followUpMaxAttempts ?? 2),
       hint: 'Máximo 5 en toda la conversación. Si el agente considera que no tiene nada útil que aportar, no manda nada aunque le queden intentos.',
+    },
+    {
+      name: 'autoConfirmVisits', label: 'Confirmar visitas', required: false,
+      type: 'select' as const,
+      options: [
+        { value: 'false', label: 'Solo solicitar — un asesor confirma' },
+        { value: 'true', label: 'Confirmar si el hueco está libre en la agenda' },
+      ],
+      defaultValue: String(agent?.autoConfirmVisits ?? false),
+      hint: 'Con esto encendido el agente consulta el Google Calendar del asesor y solo confirma una hora que comprobó libre. Sin calendario vinculado sigue solicitando, nunca confirma a ciegas.',
     },
   ];
 

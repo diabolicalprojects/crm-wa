@@ -42,6 +42,9 @@ class AgentBaseDto {
   @IsOptional() @IsBoolean() followUpEnabled?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(2) @Max(720) followUpDelayHours?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(5) followUpMaxAttempts?: number;
+
+  /** Confirmar una visita exige haber comprobado el hueco; ver `AvailabilityService`. */
+  @IsOptional() @IsBoolean() autoConfirmVisits?: boolean;
 }
 
 class CreateAgentDto extends AgentBaseDto {
@@ -98,6 +101,7 @@ export class AgentsController {
           followUpEnabled: dto.followUpEnabled,
           followUpDelayHours: dto.followUpDelayHours,
           followUpMaxAttempts: dto.followUpMaxAttempts,
+          autoConfirmVisits: dto.autoConfirmVisits,
         },
         include: { responsibleUser: { select: { id: true, name: true, email: true } } },
       });

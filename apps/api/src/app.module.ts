@@ -9,6 +9,7 @@ import { AppointmentsController } from './appointments.controller';
 import { AssignmentController } from './assignment.controller';
 import { AssignmentService } from './assignment.service';
 import { AuditController } from './audit.controller';
+import { AvailabilityService } from './availability.service';
 import { AuthController, AuthService, JwtGuard, RolesGuard } from './auth';
 import { CalendarController, GoogleClientController } from './calendar.controller';
 import { CalendarSyncService } from './calendar-sync.service';
@@ -78,6 +79,7 @@ import { WhatsappController } from './whatsapp.controller';
     AuthService,
     OpenWaGateway,
     OpenWaIngestService,
+    AvailabilityService,
     AssignmentService,
     PermissionsService,
     NotificationsService,

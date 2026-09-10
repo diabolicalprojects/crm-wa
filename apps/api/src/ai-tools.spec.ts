@@ -42,12 +42,20 @@ describe('herramientas del agente inmobiliario', () => {
       agent: { findUnique: vi.fn().mockResolvedValue({ responsibleUserId: 'user-1' }) },
       appointment: { create: vi.fn().mockResolvedValue({ id: 'appt-1' }) },
     };
-    tools = new AiToolsService(db);
+    // Por omisión, sin agenda visible: es el estado de una agencia que
+    // todavía no vinculó calendario, que son casi todas al empezar.
+    tools = new AiToolsService(db, { huecos: async () => null } as any);
   });
 
-  it('expone exactamente las seis herramientas de la especificación', () => {
+  /**
+   * Las seis de la especificación más `checkVisitAvailability`, que existe para
+   * que el agente pueda comprobar un hueco antes de proponerlo en vez de
+   * inventarlo. La lista es exacta a propósito: una herramienta nueva le da al
+   * modelo una capacidad nueva, y eso se decide, no se hereda.
+   */
+  it('expone exactamente las herramientas previstas', () => {
     expect(tools.definitions().map((tool) => tool.name).sort()).toEqual([
-      'getPropertyDetails', 'handoffToHuman', 'qualifyLead',
+      'checkVisitAvailability', 'getPropertyDetails', 'handoffToHuman', 'qualifyLead',
       'requestPropertyVisit', 'searchProperties', 'updateLeadPreferences',
     ]);
   });
@@ -166,7 +174,95 @@ describe('herramientas del agente inmobiliario', () => {
       input: { propertyId: 'prop-1', preferredDate: '2026-09-15', preferredTime: '17:30' },
     });
     expect(db.appointment.create.mock.calls[0][0].data.status).toBe('REQUESTED');
-    expect(outcome.result).toMatch(/NO afirmes que ya está confirmada/);
+    expect(outcome.result).toMatch(/SOLICITUD/);
+    expect(outcome.result).toMatch(/NO está confirmada/);
+  });
+
+  /**
+   * Confirmar exige las dos cosas a la vez: que la agencia lo autorizara y que
+   * la hora se comprobara libre en ese momento. Estas cuatro pruebas cubren las
+   * cuatro combinaciones, porque tres de ellas deben acabar en SOLICITUD.
+   */
+  describe('cuándo la visita queda confirmada', () => {
+    const pedir = () =>
+      tools.execute(CONTEXT, {
+        id: '1', name: 'requestPropertyVisit',
+        input: { propertyId: 'prop-1', preferredDate: '2026-09-15', preferredTime: '17:30' },
+      } as any);
+
+    const conAgenda = (huecos: any[] | null) =>
+      new (tools.constructor as any)(db, { huecos: async () => huecos });
+
+    beforeEach(() => {
+      db.property.findFirst.mockResolvedValue({ id: 'prop-1' });
+    });
+
+    it('con permiso de la agencia y hueco verificado, queda agendada', async () => {
+      db.agent.findUnique.mockResolvedValue({
+        responsibleUserId: 'u-ana',
+        autoConfirmVisits: true,
+        businessHours: null,
+        organization: { timezone: 'America/Mexico_City' },
+      });
+      const inicio = new Date('2026-09-15T17:30:00');
+      tools = conAgenda([{ inicio, fin: new Date(inicio.getTime() + 3600_000) }]);
+
+      const outcome = await pedir();
+
+      expect(db.appointment.create.mock.calls[0][0].data.status).toBe('SCHEDULED');
+      expect(outcome.result).toMatch(/CONFIRMADA/);
+    });
+
+    it('con permiso pero sin agenda visible, sigue siendo solicitud', async () => {
+      db.agent.findUnique.mockResolvedValue({
+        responsibleUserId: 'u-ana',
+        autoConfirmVisits: true,
+        businessHours: null,
+        organization: { timezone: 'America/Mexico_City' },
+      });
+      tools = conAgenda(null);
+
+      const outcome = await pedir();
+
+      expect(db.appointment.create.mock.calls[0][0].data.status).toBe('REQUESTED');
+      expect(outcome.result).toMatch(/NO está confirmada/);
+    });
+
+    it('con permiso y la hora ocupada, sigue siendo solicitud', async () => {
+      db.agent.findUnique.mockResolvedValue({
+        responsibleUserId: 'u-ana',
+        autoConfirmVisits: true,
+        businessHours: null,
+        organization: { timezone: 'America/Mexico_City' },
+      });
+      // Hay huecos, pero ninguno empieza a la hora pedida.
+      tools = conAgenda([
+        { inicio: new Date('2026-09-15T09:00:00'), fin: new Date('2026-09-15T10:00:00') },
+      ]);
+
+      const outcome = await pedir();
+
+      expect(db.appointment.create.mock.calls[0][0].data.status).toBe('REQUESTED');
+      expect(outcome.result).toMatch(/NO está confirmada/);
+    });
+
+    it('sin permiso de la agencia no se consulta la agenda siquiera', async () => {
+      db.agent.findUnique.mockResolvedValue({
+        responsibleUserId: 'u-ana',
+        autoConfirmVisits: false,
+        businessHours: null,
+        organization: { timezone: 'America/Mexico_City' },
+      });
+      const huecos = vi.fn(async () => [
+        { inicio: new Date('2026-09-15T17:30:00'), fin: new Date('2026-09-15T18:30:00') },
+      ]);
+      tools = new (tools.constructor as any)(db, { huecos });
+
+      await pedir();
+
+      expect(huecos).not.toHaveBeenCalled();
+      expect(db.appointment.create.mock.calls[0][0].data.status).toBe('REQUESTED');
+    });
   });
 
   it('rechaza una fecha inválida en vez de agendar cualquier cosa', async () => {

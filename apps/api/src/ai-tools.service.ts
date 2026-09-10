@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OperationType, Prisma, PropertyType } from '@prisma/client';
 import { AiToolCall, AiToolDefinition } from './ai-gateway';
+import { AvailabilityService } from './availability.service';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -111,9 +112,23 @@ export const AI_TOOL_DEFINITIONS: AiToolDefinition[] = [
     },
   },
   {
+    name: 'checkVisitAvailability',
+    description:
+      'Consulta los huecos REALES en la agenda del asesor antes de proponer una hora. Úsala siempre antes de requestPropertyVisit cuando el prospecto quiera ver una propiedad. Si devuelve que no se puede ver la agenda, propón una hora y aclara que un asesor la confirmará.',
+    parameters: {
+      type: 'object',
+      properties: {
+        fromDate: { type: 'string', description: 'Fecha ISO desde la que buscar, por ejemplo 2026-09-15' },
+        days: { type: 'integer', minimum: 1, maximum: 14, description: 'Cuántos días mirar hacia adelante' },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'requestPropertyVisit',
     description:
-      'Registra una SOLICITUD de visita. No confirma la cita: un asesor debe aprobarla. Nunca digas al prospecto que la visita quedó confirmada.',
+      'Agenda una visita. Si la hora se verificó libre con checkVisitAvailability y la agencia lo permite, queda confirmada; en cualquier otro caso queda como SOLICITUD y un asesor debe aprobarla. La respuesta te dice cuál de las dos ocurrió: no afirmes que quedó confirmada si no lo dice.',
     parameters: {
       type: 'object',
       properties: {
@@ -146,7 +161,10 @@ export const AI_TOOL_DEFINITIONS: AiToolDefinition[] = [
 export class AiToolsService {
   private readonly log = new Logger(AiToolsService.name);
 
-  constructor(private db: PrismaService) {}
+  constructor(
+    private db: PrismaService,
+    private availability: AvailabilityService,
+  ) {}
 
   definitions(): AiToolDefinition[] {
     return AI_TOOL_DEFINITIONS;
@@ -163,6 +181,8 @@ export class AiToolsService {
           return await this.updateLeadPreferences(context, call.input);
         case 'qualifyLead':
           return await this.qualifyLead(context, call.input);
+        case 'checkVisitAvailability':
+          return await this.checkVisitAvailability(context, call.input);
         case 'requestPropertyVisit':
           return await this.requestPropertyVisit(context, call.input);
         case 'handoffToHuman':
@@ -399,6 +419,79 @@ export class AiToolsService {
     return { result: `Lead calificado con ${score}/100${stage ? ` en etapa ${stage}` : ''}.` };
   }
 
+  /**
+   * Los huecos reales del asesor.
+   *
+   * Distingue tres respuestas y el agente las trata distinto: hay horas, no hay
+   * ninguna, o no se puede ver la agenda. Confundir la tercera con la segunda
+   * haría que el agente dijera «no tengo nada libre» cuando en realidad no sabe.
+   */
+  private async checkVisitAvailability(context: ToolContext, input: any): Promise<ToolOutcome> {
+    const agent = context.agentId
+      ? await this.db.agent.findUnique({
+          where: { id: context.agentId },
+          select: {
+            responsibleUserId: true,
+            businessHours: true,
+            organization: { select: { timezone: true } },
+          },
+        })
+      : null;
+    if (!agent) {
+      return { result: 'No hay un asesor asignado para agendar. Transfiere a un humano.' };
+    }
+
+    const desde = this.parseWhen(input.fromDate, '00:00') ?? new Date();
+    const dias = Math.min(Math.max(Number(input.days ?? 7), 1), 14);
+    const hasta = new Date(desde.getTime() + dias * 86_400_000);
+
+    const huecos = await this.availability.huecos({
+      organizationId: context.organizationId,
+      userId: agent.responsibleUserId,
+      desde,
+      hasta,
+      horario: agent.businessHours,
+      timezone: agent.organization.timezone,
+    });
+
+    if (huecos === null) {
+      return {
+        result: JSON.stringify({
+          agendaVisible: false,
+          mensaje:
+            'No se puede consultar la agenda del asesor. Propón una hora y di con claridad que un asesor la confirmará.',
+        }),
+      };
+    }
+    if (!huecos.length) {
+      return {
+        result: JSON.stringify({
+          agendaVisible: true,
+          huecos: [],
+          mensaje: 'El asesor no tiene huecos en ese rango. Ofrece buscar en otras fechas.',
+        }),
+      };
+    }
+
+    const zona = agent.organization.timezone;
+    return {
+      result: JSON.stringify({
+        agendaVisible: true,
+        huecos: huecos.slice(0, 6).map((hueco) => ({
+          inicio: hueco.inicio.toISOString(),
+          etiqueta: new Intl.DateTimeFormat('es-MX', {
+            timeZone: zona,
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            hour: 'numeric',
+            minute: '2-digit',
+          }).format(hueco.inicio),
+        })),
+      }),
+    };
+  }
+
   private async requestPropertyVisit(context: ToolContext, input: any): Promise<ToolOutcome> {
     const startsAt = this.parseWhen(input.preferredDate, input.preferredTime);
     if (!startsAt) {
@@ -418,10 +511,37 @@ export class AiToolsService {
     const agent = context.agentId
       ? await this.db.agent.findUnique({
           where: { id: context.agentId },
-          select: { responsibleUserId: true },
+          select: {
+            responsibleUserId: true,
+            autoConfirmVisits: true,
+            businessHours: true,
+            organization: { select: { timezone: true } },
+          },
         })
       : null;
     if (!agent) return { result: 'No hay un asesor asignado para agendar. Transfiere a un humano.' };
+
+    /*
+     * Confirmar exige las dos cosas a la vez: que la agencia lo haya
+     * autorizado y que la hora se haya podido comprobar libre en este mismo
+     * momento. Cualquier duda —sin calendario, Google caído, la hora ocupada—
+     * cae en solicitud, que es el comportamiento seguro de siempre.
+     */
+    let confirmada = false;
+    if (agent.autoConfirmVisits) {
+      const fin = new Date(startsAt.getTime() + 60 * 60 * 1000);
+      const huecos = await this.availability.huecos({
+        organizationId: context.organizationId,
+        userId: agent.responsibleUserId,
+        desde: new Date(startsAt.getTime() - 60_000),
+        hasta: new Date(fin.getTime() + 60_000),
+        horario: agent.businessHours,
+        timezone: agent.organization.timezone,
+      });
+      confirmada = Boolean(
+        huecos?.some((hueco) => hueco.inicio.getTime() === startsAt.getTime()),
+      );
+    }
 
     const appointment = await this.db.appointment.create({
       data: {
@@ -431,9 +551,9 @@ export class AiToolsService {
         assignedUserId: agent.responsibleUserId,
         startsAt,
         endsAt: new Date(startsAt.getTime() + 60 * 60 * 1000),
-        // REQUESTED, no SCHEDULED: la spec §13.5 prohíbe afirmar que quedó
-        // confirmada cuando solo se creó una solicitud.
-        status: 'REQUESTED',
+        // SCHEDULED solo cuando se comprobó el hueco; si no, REQUESTED, porque
+        // §13.5 prohíbe afirmar que quedó confirmada sin serlo.
+        status: confirmada ? 'SCHEDULED' : 'REQUESTED',
         source: 'AI',
         notes: input.notes ? String(input.notes) : undefined,
       },
@@ -444,8 +564,13 @@ export class AiToolsService {
       data: { stage: 'VISIT_SCHEDULED' },
     });
 
+    // El mensaje distingue los dos casos con claridad, porque de él depende lo
+    // que el agente le diga al prospecto y es donde una ambigüedad se convierte
+    // en una cita prometida que no existe.
     return {
-      result: `Solicitud de visita registrada (${appointment.id}) para ${startsAt.toISOString()}. Avísale al prospecto que un asesor la confirmará; NO afirmes que ya está confirmada.`,
+      result: confirmada
+        ? `Visita CONFIRMADA (${appointment.id}) para ${startsAt.toISOString()}: la hora se verificó libre en la agenda del asesor. Puedes decirle al prospecto que quedó agendada.`
+        : `SOLICITUD de visita registrada (${appointment.id}) para ${startsAt.toISOString()}. NO está confirmada. Avísale al prospecto que un asesor la confirmará.`,
     };
   }
 
