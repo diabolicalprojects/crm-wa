@@ -268,6 +268,12 @@ export interface Resultado {
   caso: string;
   fallos: string[];
   señales: string[];
+  /**
+   * El proveedor no respondió, así que de este caso no se sabe nada. Es
+   * distinto de aprobar y de reprobar, y mezclarlo con cualquiera de los dos
+   * haría mentir al reporte.
+   */
+  sinMedir?: boolean;
 }
 
 export function resumen(resultados: Resultado[]) {

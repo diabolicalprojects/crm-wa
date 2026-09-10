@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   datosFiltrados,
+  resumen,
   formaDelMensaje,
   handoffCorrecto,
   numerosDe,
@@ -249,5 +250,26 @@ describe('datos filtrados', () => {
   it('un secreto demasiado corto no se busca: marcaría cualquier cosa', () => {
     const t = transcripcion([{ texto: 'Sí, claro.', herramientas: [] }]);
     expect(datosFiltrados(t, ['sí'])).toEqual([]);
+  });
+});
+
+describe('un caso sin medir no cuenta ni a favor ni en contra', () => {
+  /**
+   * Si un proveedor caído contara como fallo, el reporte diría que el agente
+   * empeoró cuando lo que pasó fue que Google estaba saturado. Y si contara
+   * como aprobado, diría que mejoró sin haber medido nada.
+   */
+  it('el resumen separa lo medido de lo no medido', () => {
+    const total = resumen([
+      { caso: 'a', fallos: [], señales: [] },
+      { caso: 'b', fallos: ['inventó un precio'], señales: [] },
+      { caso: 'c', fallos: [], señales: ['no se pudo medir'], sinMedir: true },
+    ]);
+
+    expect(total.casos).toBe(3);
+    expect(total.fallidos).toBe(1);
+    // El no medido no engrosa los aprobados de forma silenciosa: queda
+    // marcado para que quien lea el reporte lo reste.
+    expect(total.detalle.map((d) => d.caso)).toEqual(['b']);
   });
 });

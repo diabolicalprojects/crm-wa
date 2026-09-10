@@ -41,6 +41,48 @@ import {
 
 const MAX_VUELTAS = 4;
 
+/**
+ * Un proveedor saturado no es un fallo del agente.
+ *
+ * `503 high demand` y `429` son transitorios por definición —el propio mensaje
+ * de Google dice que los picos suelen ser temporales— y tratarlos como
+ * definitivos convierte la evaluación en una lotería: el número que sale
+ * depende de la capacidad del proveedor en ese minuto, no de la calidad del
+ * agente. Se reintenta con espera creciente y se dice en el reporte cuántas
+ * veces hizo falta.
+ */
+const REINTENTOS = Number(process.env.EVAL_RETRIES ?? 4);
+const ESPERAS_MS = [3_000, 10_000, 25_000, 60_000];
+
+const TRANSITORIO = /\b(429|500|502|503|504)\b|high demand|UNAVAILABLE|overloaded|rate.?limit|ECONNRESET|ETIMEDOUT/i;
+
+function esTransitorio(error: unknown): boolean {
+  return TRANSITORIO.test(error instanceof Error ? error.message : String(error));
+}
+
+const dormir = (ms: number) => new Promise((listo) => setTimeout(listo, ms));
+
+async function conReintento<T>(
+  etiqueta: string,
+  accion: () => Promise<T>,
+): Promise<{ valor: T; reintentos: number }> {
+  let ultimo: unknown;
+  for (let intento = 0; intento <= REINTENTOS; intento++) {
+    try {
+      return { valor: await accion(), reintentos: intento };
+    } catch (error) {
+      ultimo = error;
+      // Un error del agente —una herramienta mal llamada, un 400— no se
+      // reintenta: repetirlo daría el mismo resultado y escondería el fallo.
+      if (!esTransitorio(error) || intento === REINTENTOS) break;
+      const espera = ESPERAS_MS[Math.min(intento, ESPERAS_MS.length - 1)];
+      process.stdout.write(`\n    · ${etiqueta}: proveedor saturado, reintento en ${espera / 1000}s `);
+      await dormir(espera);
+    }
+  }
+  throw ultimo;
+}
+
 /** Responde las herramientas con el inventario fijo, sin tocar la base. */
 function ejecutar(nombre: string, input: any): string {
   switch (nombre) {
@@ -187,14 +229,16 @@ async function correrCaso(
     let respuesta = '';
 
     for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
-      const resultado = await gateway.generate(credencial, {
-        model: modelo,
-        system: sistema(caso),
-        messages: mensajes,
-        tools: tools.definitions(),
-        temperature: 0.2,
-        maxTokens: 1024,
-      });
+      const { valor: resultado } = await conReintento(caso.id, () =>
+        gateway.generate(credencial, {
+          model: modelo,
+          system: sistema(caso),
+          messages: mensajes,
+          tools: tools.definitions(),
+          temperature: 0.2,
+          maxTokens: 1024,
+        }),
+      );
 
       respuesta = resultado.text ?? '';
       if (!resultado.toolCalls.length) break;
@@ -288,14 +332,32 @@ async function main() {
       for (const fallo of resultado.fallos) console.log(`    ✗ ${fallo}`);
       for (const señal of resultado.señales) console.log(`    · ${señal}`);
     } catch (error) {
-      console.log('ERROR');
-      console.log(`    ${error instanceof Error ? error.message : error}`);
-      resultados.push({ caso: caso.id, fallos: ['error al ejecutar'], señales: [] });
+      const mensaje = error instanceof Error ? error.message : String(error);
+      const transitorio = esTransitorio(error);
+      console.log(transitorio ? 'PROVEEDOR NO DISPONIBLE' : 'ERROR');
+      console.log(`    ${mensaje.slice(0, 300)}`);
+      // Un proveedor caído no es un fallo del agente y no debe contarse como
+      // tal: un reporte que los mezcla miente sobre la calidad del agente.
+      resultados.push({
+        caso: caso.id,
+        fallos: transitorio ? [] : ['error al ejecutar'],
+        señales: transitorio ? ['no se pudo medir: proveedor no disponible'] : [],
+        sinMedir: transitorio,
+      });
     }
   }
 
   const total = resumen(resultados);
-  console.log(`\n${total.aprobados}/${total.casos} casos sin fallos.`);
+  const sinMedir = resultados.filter((r) => r.sinMedir).length;
+  const medidos = total.casos - sinMedir;
+
+  console.log(`\n${total.aprobados - sinMedir}/${medidos} casos medidos sin fallos.`);
+  if (sinMedir) {
+    console.log(
+      `${sinMedir} caso(s) no se pudieron medir porque el proveedor no respondió. ` +
+        'Vuelve a correrlo más tarde: no cuentan ni a favor ni en contra.',
+    );
+  }
   // Código de salida distinto de cero: sirve como puerta si alguien lo mete en
   // una tubería, sin obligar a nadie a hacerlo.
   if (total.fallidos) process.exitCode = 1;
