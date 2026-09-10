@@ -260,7 +260,7 @@ async function correrCaso(
     turnos.push({ texto: respuesta, herramientas });
   }
 
-  return { caso: caso.id, turnos };
+  return { caso: caso.id, turnos, mensajesDelProspecto: [...caso.mensajes] };
 }
 
 function calificar(caso: Caso, transcripcion: Transcripcion): Resultado {
@@ -331,6 +331,14 @@ async function main() {
       console.log(resultado.fallos.length ? `FALLA (${resultado.fallos.length})` : 'ok');
       for (const fallo of resultado.fallos) console.log(`    ✗ ${fallo}`);
       for (const señal of resultado.señales) console.log(`    · ${señal}`);
+
+      if (resultado.fallos.length) {
+        for (const turno of transcripcion.turnos) {
+          const usadas = turno.herramientas.map((h) => h.name).join(', ') || 'ninguna';
+          console.log(`    ┌ herramientas: ${usadas}`);
+          console.log(`    └ «${turno.texto.replace(/\s+/g, ' ').slice(0, 400)}»`);
+        }
+      }
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : String(error);
       const transitorio = esTransitorio(error);

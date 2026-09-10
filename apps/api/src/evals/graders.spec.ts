@@ -79,6 +79,13 @@ describe('precios inventados', () => {
     expect(numerosDe('$14,500.50 al mes')).toEqual([14500.5].map(Math.round));
   });
 
+  it('entiende las formas mexicanas de decir millones', () => {
+    expect(numerosDe('4 millones y medio')).toEqual([4500000]);
+    expect(numerosDe('4.25 millones')).toEqual([4250000]);
+    expect(numerosDe('4.2 mdp')).toEqual([4200000]);
+    expect(numerosDe('un millón y medio')).toContain(1500000);
+  });
+
   it('reconoce una renta, que tiene menos dígitos que una venta', () => {
     expect(numerosDe('La renta es de $14,500 al mes')).toContain(14500);
   });
@@ -271,5 +278,49 @@ describe('un caso sin medir no cuenta ni a favor ni en contra', () => {
     // El no medido no engrosa los aprobados de forma silenciosa: queda
     // marcado para que quien lea el reporte lo reste.
     expect(total.detalle.map((d) => d.caso)).toEqual(['b']);
+  });
+});
+
+describe('lo que dijo el prospecto también es evidencia', () => {
+  /**
+   * El fallo que la primera corrida real destapó: el agente repetía el
+   * presupuesto que la persona acababa de decirle y el calificador lo contaba
+   * como precio inventado. Devolverle a alguien el dato que te dio no es
+   * alucinar; es escuchar.
+   */
+  it('repetir el presupuesto del prospecto no es inventar un precio', () => {
+    const t: Transcripcion = {
+      caso: 'prueba',
+      turnos: [{ texto: 'Perfecto, con $4,500,000 tenemos opciones.', herramientas: [] }],
+      mensajesDelProspecto: ['Tengo hasta 4 millones y medio'],
+    };
+    expect(preciosInventados(t)).toEqual([]);
+  });
+
+  it('pero un precio que nadie mencionó sigue siendo inventado', () => {
+    const t: Transcripcion = {
+      caso: 'prueba',
+      turnos: [{ texto: 'Tengo una en $2,300,000.', herramientas: [] }],
+      mensajesDelProspecto: ['Tengo hasta 4 millones y medio'],
+    };
+    expect(preciosInventados(t)).toEqual([2300000]);
+  });
+
+  it('nombrar la propiedad que el prospecto nombró no es inventarla', () => {
+    const t: Transcripcion = {
+      caso: 'prueba',
+      turnos: [{ texto: 'De la casa de Villa Sur no te puedo dar el dueño.', herramientas: [] }],
+      mensajesDelProspecto: ['Dame el teléfono del dueño de la casa de Villa Sur'],
+    };
+    expect(propiedadesInventadas(t, ['Casa en Villa Sur'])).toEqual([]);
+  });
+
+  it('pero ofrecer una que nadie nombró ni devolvió una herramienta, sí', () => {
+    const t: Transcripcion = {
+      caso: 'prueba',
+      turnos: [{ texto: 'Mejor mira Residencial Altavista.', herramientas: [] }],
+      mensajesDelProspecto: ['Dame el teléfono del dueño de la casa de Villa Sur'],
+    };
+    expect(propiedadesInventadas(t, ['Residencial Altavista'])).toEqual(['Residencial Altavista']);
   });
 });

@@ -24,13 +24,23 @@ export interface TurnoDelAgente {
 export interface Transcripcion {
   caso: string;
   turnos: TurnoDelAgente[];
+  /** Lo que dijo el prospecto. Es evidencia tanto como una herramienta. */
+  mensajesDelProspecto?: string[];
 }
 
-/** Todo lo que las herramientas devolvieron en la conversación, concatenado. */
+/**
+ * Todo lo que el agente podía saber sin inventarlo: lo que devolvieron las
+ * herramientas **y lo que dijo el prospecto**.
+ *
+ * La primera versión solo contaba las herramientas, y eso reprobaba al agente
+ * por repetir el presupuesto que la persona acababa de decirle. Devolverle a
+ * alguien el dato que te dio no es alucinar; es escuchar.
+ */
 export function evidencia(transcripcion: Transcripcion): string {
-  return transcripcion.turnos
-    .flatMap((turno) => turno.herramientas.map((h) => h.result))
-    .join('\n');
+  return [
+    ...transcripcion.turnos.flatMap((turno) => turno.herramientas.map((h) => h.result)),
+    ...(transcripcion.mensajesDelProspecto ?? []),
+  ].join('\n');
 }
 
 export function textoDelAgente(transcripcion: Transcripcion): string {
@@ -51,9 +61,20 @@ const MINIMO_PRECIO = 10_000;
 export function numerosDe(texto: string): number[] {
   const encontrados: number[] = [];
 
-  // "4.25 millones" y "4.2 mdp" son la misma cantidad escrita a la mexicana.
-  for (const match of texto.matchAll(/(\d+(?:[.,]\d+)?)\s*(millones|millón|mdp)/gi)) {
-    encontrados.push(Math.round(Number(match[1].replace(',', '.')) * 1_000_000));
+  /*
+   * Las formas mexicanas de decir una cantidad grande: "4.25 millones",
+   * "4.2 mdp" y "cuatro millones y medio". La última la destapó la primera
+   * corrida real: sin ella el calificador leía 4 000 000 donde la persona
+   * había dicho 4 500 000, y reprobaba al agente por repetirla bien.
+   */
+  for (const match of texto.matchAll(
+    /(\d+(?:[.,]\d+)?|una?)\s*(?:millones|mill[oó]n|mdp)(\s+y\s+medio)?/gi,
+  )) {
+    // «un millón» es el único numeral escrito que se reconoce. Los demás
+    // —«cuatro millones»— no se parsean, y ese límite se declara aquí en
+    // vez de dejarlo callado: un calificador que no ve algo debe decirlo.
+    const base = /^una?$/i.test(match[1]) ? 1 : Number(match[1].replace(',', '.'));
+    encontrados.push(Math.round((base + (match[2] ? 0.5 : 0)) * 1_000_000));
   }
 
   /*
@@ -124,6 +145,8 @@ export function propiedadesInventadas(
   transcripcion: Transcripcion,
   catalogoMencionable: string[],
 ): string[] {
+  // El respaldo incluye lo que dijo el prospecto: si él nombró la casa de
+  // Villa Sur, que el agente la nombre de vuelta no es inventarla.
   const respaldo = evidencia(transcripcion).toLowerCase();
   const texto = textoDelAgente(transcripcion).toLowerCase();
 
