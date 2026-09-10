@@ -13,9 +13,11 @@
  * contra la base. Una evaluación cuyo resultado depende del estado de una base
  * deja de ser comparable entre corridas, y comparar corridas es todo el punto.
  */
+import { PrismaClient } from '@prisma/client';
 import { AiGateway, type AiCredentials, type AiMessage } from '../ai-gateway';
 import { AiToolsService } from '../ai-tools.service';
 import { buildSystemPrompt } from '../prompt';
+import { SecretsService } from '../secrets.service';
 import {
   CASOS,
   CATALOGO_MENCIONABLE,
@@ -72,16 +74,74 @@ function ejecutar(nombre: string, input: any): string {
   }
 }
 
-function credenciales(): AiCredentials {
-  const kind = (process.env.EVAL_KIND ?? '').toUpperCase();
-  const apiKey = process.env.EVAL_API_KEY ?? '';
-  if (!kind || !apiKey) {
+export interface Motor {
+  credencial: AiCredentials;
+  modelo: string;
+  origen: string;
+}
+
+/**
+ * De dónde sale la credencial, en orden de preferencia.
+ *
+ * 1. **La base de datos**, si hay `DATABASE_URL`: el mismo proveedor que usa
+ *    producción, con su clave descifrada igual que la descifra el worker.
+ *    Evaluar con otra credencial mide otra cosa, y además así el secreto nunca
+ *    sale del servidor.
+ * 2. **Variables de entorno**, para correrlo a mano desde una máquina que no
+ *    alcanza la base.
+ *
+ * Nunca se imprime la clave, solo de dónde salió.
+ */
+export async function resolverMotor(): Promise<Motor> {
+  const porEntorno = motorDeEntorno();
+  if (porEntorno) return porEntorno;
+
+  if (!process.env.DATABASE_URL) {
     throw new Error(
-      'Faltan EVAL_KIND y EVAL_API_KEY. Ejemplo:\n' +
-        '  EVAL_KIND=ANTHROPIC EVAL_API_KEY=sk-... EVAL_MODEL=claude-opus-5 npx tsx apps/api/src/evals/run-evals.ts',
+      'No hay credencial. Dos formas de darle una:\n' +
+        '  · Con la del CRM:  DATABASE_URL=... ENCRYPTION_KEY=... node apps/api/dist/evals/run-evals.js\n' +
+        '  · Con una suelta:  EVAL_KIND=OPENAI EVAL_API_KEY=sk-... npm run evals',
     );
   }
-  return { kind: kind as any, apiKey, baseUrl: process.env.EVAL_BASE_URL };
+
+  const db = new PrismaClient();
+  try {
+    const config = await db.aiModelConfig.findFirst({
+      where: { enabled: true, provider: { enabled: true } },
+      // El predeterminado primero: es el que responde a los prospectos.
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      include: { provider: true },
+    });
+    if (!config?.provider?.encryptedApiKey) {
+      throw new Error(
+        'No hay ningún proveedor de IA habilitado en la base. ' +
+          'Configúralo en Superadministración → Proveedores de IA.',
+      );
+    }
+    const secrets = new SecretsService();
+    return {
+      credencial: {
+        kind: config.provider.kind,
+        apiKey: secrets.decrypt(config.provider.encryptedApiKey),
+        baseUrl: config.provider.baseUrl ?? undefined,
+      },
+      modelo: config.model,
+      origen: `base de datos · proveedor "${config.provider.name}" · ${config.model}`,
+    };
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+function motorDeEntorno(): Motor | undefined {
+  const kind = (process.env.EVAL_KIND ?? '').toUpperCase();
+  const apiKey = process.env.EVAL_API_KEY ?? '';
+  if (!kind || !apiKey) return undefined;
+  return {
+    credencial: { kind: kind as any, apiKey, baseUrl: process.env.EVAL_BASE_URL },
+    modelo: process.env.EVAL_MODEL ?? 'claude-opus-5',
+    origen: `entorno · ${kind} · ${process.env.EVAL_MODEL ?? 'claude-opus-5'}`,
+  };
 }
 
 /**
@@ -110,9 +170,13 @@ function sistema(caso: Caso): string {
   });
 }
 
-async function correrCaso(gateway: AiGateway, tools: AiToolsService, caso: Caso): Promise<Transcripcion> {
-  const credencial = credenciales();
-  const modelo = process.env.EVAL_MODEL ?? 'claude-opus-5';
+async function correrCaso(
+  gateway: AiGateway,
+  tools: AiToolsService,
+  caso: Caso,
+  motor: Motor,
+): Promise<Transcripcion> {
+  const { credencial, modelo } = motor;
   const mensajes: AiMessage[] = [];
   const turnos: Transcripcion['turnos'] = [];
 
@@ -209,13 +273,15 @@ async function main() {
   // El almacén no se usa: las herramientas se responden con el inventario fijo.
   const tools = new AiToolsService({} as any, {} as any);
 
-  console.log(`Corpus ${VERSION_CORPUS} · ${CASOS.length} casos · modelo ${process.env.EVAL_MODEL ?? 'claude-opus-5'}\n`);
+  const motor = await resolverMotor();
+  console.log(`Corpus ${VERSION_CORPUS} · ${CASOS.length} casos`);
+  console.log(`Credencial: ${motor.origen}\n`);
 
   const resultados: Resultado[] = [];
   for (const caso of CASOS) {
     process.stdout.write(`${caso.id.padEnd(26)} `);
     try {
-      const transcripcion = await correrCaso(gateway, tools, caso);
+      const transcripcion = await correrCaso(gateway, tools, caso, motor);
       const resultado = calificar(caso, transcripcion);
       resultados.push(resultado);
       console.log(resultado.fallos.length ? `FALLA (${resultado.fallos.length})` : 'ok');
