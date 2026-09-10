@@ -29,6 +29,7 @@ import {
 } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from './auth';
 import { PermissionsService, RequirePermission } from './permissions';
+import { nuevaLlaveDeFicha } from './public-property.controller';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './tenant';
 
@@ -125,6 +126,11 @@ function celdaCsv(valor: unknown): string {
   if (valor === null || valor === undefined) return '';
   const texto = String(valor);
   return /[",\r\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+}
+
+/** De dónde cuelgan los enlaces públicos que se mandan por WhatsApp. */
+function publicWebUrl() {
+  return (process.env.PUBLIC_WEB_URL ?? '').replace(/[/]$/, '');
 }
 
 @Controller('properties')
@@ -296,6 +302,110 @@ export class PropertiesController {
     if (propiedad.responsibleUserId && propiedad.responsibleUserId !== user.id) {
       throw new ForbiddenException('Esta propiedad está a cargo de otra persona');
     }
+  }
+
+  /**
+   * Genera —o regenera— el enlace público de la ficha.
+   *
+   * Regenerar invalida el anterior, que es la única forma de retirar una ficha
+   * que ya circula por WhatsApp.
+   */
+  @Post(':id/share')
+  @Roles('OWNER', 'ADMIN', 'SUPERVISOR', 'ADVISOR')
+  async share(
+    @CurrentUser() user: AuthUser,
+    @TenantId() organizationId: string,
+    @Param('id') id: string,
+  ) {
+    const existe = await this.db.property.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+    if (!existe) throw new NotFoundException('Propiedad no encontrada');
+
+    const shareToken = nuevaLlaveDeFicha();
+    await this.db.$transaction([
+      this.db.property.update({ where: { id }, data: { shareToken } }),
+      this.db.auditLog.create({
+        data: {
+          organizationId,
+          userId: user.id,
+          action: 'PROPERTY_SHARED',
+          entityType: 'Property',
+          entityId: id,
+        },
+      }),
+    ]);
+    return { shareToken, url: `${publicWebUrl()}/p/${shareToken}` };
+  }
+
+  @Delete(':id/share')
+  @Roles('OWNER', 'ADMIN', 'SUPERVISOR', 'ADVISOR')
+  async unshare(@TenantId() organizationId: string, @Param('id') id: string) {
+    const existe = await this.db.property.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+    if (!existe) throw new NotFoundException('Propiedad no encontrada');
+    await this.db.property.update({ where: { id }, data: { shareToken: null } });
+    return { revocado: true };
+  }
+
+  /**
+   * El reporte que el asesor le manda al dueño del inmueble.
+   *
+   * Responde a la única pregunta que hace un propietario —«¿qué has hecho con
+   * mi casa?»— con lo que el sistema sabe de verdad: a cuántas personas se les
+   * mostró, cuándo fue la última vez, y qué visitas hay. Nada de eso es una
+   * estimación.
+   */
+  @Get(':id/reporte')
+  @Roles('OWNER', 'ADMIN', 'SUPERVISOR', 'ADVISOR')
+  async reporte(@TenantId() organizationId: string, @Param('id') id: string) {
+    const property = await this.db.property.findFirst({
+      where: { id, organizationId },
+      include: {
+        organization: { select: { name: true } },
+        responsibleUser: { select: { name: true } },
+      },
+    });
+    if (!property) throw new NotFoundException('Propiedad no encontrada');
+
+    const [mostrada, visitas] = await Promise.all([
+      this.db.leadPropertyMatch.findMany({
+        where: { propertyId: id, organizationId },
+        orderBy: { shownAt: 'desc' },
+        select: { shownAt: true, leadId: true },
+      }),
+      this.db.appointment.findMany({
+        where: { propertyId: id, organizationId },
+        orderBy: { startsAt: 'desc' },
+        take: 20,
+        select: { startsAt: true, status: true },
+      }),
+    ]);
+
+    return {
+      agencia: property.organization.name,
+      asesor: property.responsibleUser?.name ?? null,
+      propiedad: {
+        title: property.title,
+        internalCode: property.internalCode,
+        price: Number(property.price),
+        currency: property.currency,
+        status: property.status,
+        operationType: property.operationType,
+        neighborhood: property.neighborhood,
+        city: property.city,
+      },
+      // Personas distintas, no veces: mostrarle la misma casa tres veces a la
+      // misma persona no son tres interesados.
+      interesados: new Set(mostrada.map((m) => m.leadId)).size,
+      vecesMostrada: mostrada.length,
+      ultimaVez: mostrada[0]?.shownAt ?? null,
+      visitas,
+      generado: new Date().toISOString(),
+    };
   }
 
   @Delete(':id')

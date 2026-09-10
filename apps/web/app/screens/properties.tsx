@@ -5,6 +5,7 @@ import {
   type Column, type FieldSpec,
 } from '../components/ui';
 import { fetchText, request, requestList } from '../lib/api';
+import { ReportModal, ShareModal } from '../components/property-share';
 import { LEGAL_STATUSES, OPERATION_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, label, location, money } from '../lib/format';
 
 const FIELDS: FieldSpec[] = [
@@ -44,6 +45,8 @@ export function Properties() {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<any>();
+  const [sharing, setSharing] = useState<any>();
+  const [reporting, setReporting] = useState<any>();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const file = useRef<HTMLInputElement>(null);
@@ -126,6 +129,10 @@ export function Properties() {
       key: 'actions', head: '', align: 'right',
       cell: (row) => (
         <div className="row-actions">
+          <Button size="sm" icon="link" title="Compartir ficha"
+            onClick={(event) => { event.stopPropagation(); setSharing(row); }} />
+          <Button size="sm" icon="list" title="Reporte al propietario"
+            onClick={(event) => { event.stopPropagation(); setReporting(row); }} />
           <Button size="sm" icon="settings" onClick={(event) => { event.stopPropagation(); setEditing(row); }} title="Editar" />
         </div>
       ),
@@ -220,6 +227,9 @@ export function Properties() {
           }}
         />
       )}
+
+      {sharing && <ShareModal property={sharing} onClose={() => setSharing(undefined)} />}
+      {reporting && <ReportModal property={reporting} onClose={() => setReporting(undefined)} />}
     </section>
   );
 }

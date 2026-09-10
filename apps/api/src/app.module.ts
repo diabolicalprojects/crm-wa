@@ -39,6 +39,7 @@ import {
 } from './permissions';
 import { PrismaService } from './prisma.service';
 import { PropertiesController } from './properties.controller';
+import { PublicPropertyController } from './public-property.controller';
 import { SecretsService } from './secrets.service';
 import { SystemController } from './system.controller';
 import { WhatsappController } from './whatsapp.controller';
@@ -60,6 +61,7 @@ import { WhatsappController } from './whatsapp.controller';
     AgentsController,
     WhatsappController,
     PropertiesController,
+    PublicPropertyController,
     LeadsController,
     ContactsController,
     ConversationsController,

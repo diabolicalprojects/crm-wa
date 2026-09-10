@@ -758,3 +758,76 @@ td b { font-weight: 600; }
 .bell-item.sin-leer { border-left: 3px solid var(--primary); }
 .bell-item.sin-leer svg { color: var(--primary); }
 .bell-item.sin-leer b { font-weight: 700; }
+
+/* --------------------------------------------------------- ficha pública */
+
+/* La abre el cliente final desde WhatsApp, casi siempre en un teléfono: se
+   diseña a una columna angosta y todo lo demás se adapta hacia arriba. */
+.ficha { min-height: 100vh; background: var(--bg); padding: 0 0 40px; }
+.ficha-cuerpo {
+  max-width: 640px; margin: 0 auto; background: var(--surface);
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  min-height: 100vh;
+}
+@media (min-width: 680px) {
+  .ficha { padding: 28px 20px 48px; }
+  .ficha-cuerpo {
+    min-height: 0; border: 1px solid var(--border);
+    border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow);
+  }
+}
+
+.ficha-fotos { display: grid; gap: 2px; grid-template-columns: 1fr; background: var(--surface-2); }
+.ficha-fotos img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: cover; }
+.ficha-fotos img:not(:first-child) { display: none; }
+@media (min-width: 680px) {
+  .ficha-fotos { grid-template-columns: 2fr 1fr; }
+  .ficha-fotos img:first-child { grid-row: span 2; height: 100%; }
+  .ficha-fotos img:nth-child(2), .ficha-fotos img:nth-child(3) { display: block; max-height: 209px; }
+}
+
+.ficha-head { padding: 20px 20px 0; }
+.ficha-head h1 { font-size: 22px; margin: 10px 0 6px; }
+.ficha-precio { font-size: 24px; font-weight: 700; letter-spacing: -.03em; color: var(--primary); }
+.ficha-lugar { font-size: 13.5px; color: var(--text-2); margin-top: 3px; }
+
+.ficha-datos {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1px; margin: 20px 0 0; padding: 0; background: var(--border);
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.ficha-datos > div { background: var(--surface); padding: 12px 20px; }
+.ficha-datos dt { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.ficha-datos dd { margin: 2px 0 0; font-size: 14.5px; font-weight: 600; }
+
+.ficha-texto { padding: 18px 20px; font-size: 14px; color: var(--text-2); line-height: 1.65; white-space: pre-line; }
+
+.ficha-amenidades { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 18px; }
+.ficha-amenidades span {
+  font-size: 12px; padding: 4px 10px; border-radius: var(--r-full);
+  background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border);
+}
+
+.ficha .row { padding: 0 20px 20px; }
+.ficha-pie {
+  padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface-2);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ficha-pie b { font-size: 14px; }
+.ficha-pie span { font-size: 12.5px; color: var(--text-3); }
+
+.ficha-vacia { max-width: 420px; margin: 80px auto; text-align: center; padding: 0 24px; }
+.ficha-vacia b { display: block; font-size: 17px; margin-bottom: 6px; }
+.ficha-vacia p { font-size: 13.5px; color: var(--text-2); }
+
+/* Al imprimir el reporte solo debe salir el reporte: el resto de la consola
+   —menú, encabezado, botones— no es parte de lo que se le manda al dueño. */
+@media print {
+  .sidebar, .topbar, .modal-foot, .toast-stack { display: none !important; }
+  .modal-backdrop { position: static; background: none; padding: 0; }
+  .modal { box-shadow: none; border: 0; max-height: none; max-width: none; }
+  .reporte { break-inside: avoid; }
+}
+.reporte-head { margin-bottom: 16px; }
+.reporte-head b { display: block; font-size: 16px; }
+.reporte-head span { font-size: 13px; color: var(--text-3); }
